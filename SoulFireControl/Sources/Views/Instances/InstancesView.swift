@@ -185,13 +185,15 @@ struct InstanceRow: View {
 
                 if let summary = instance.botSummary {
                     // 小型在线率指示
+                    let failed = summary.failedBots ?? 0
+                    let starting = summary.startingBots ?? 0
                     VStack(alignment: .trailing, spacing: 4) {
                         StatusBadge(
-                            summary.failedBots > 0 ? "\(summary.failedBots) 失败" : "\(summary.onlineBots) 在线",
-                            summary.failedBots > 0 ? MCTheme.failed : (summary.onlineBots > 0 ? MCTheme.online : MCTheme.stopped)
+                            failed > 0 ? "\(failed) 失败" : "\(summary.onlineBots) 在线",
+                            failed > 0 ? MCTheme.failed : (summary.onlineBots > 0 ? MCTheme.online : MCTheme.stopped)
                         )
-                        if summary.startingBots > 0 {
-                            StatusBadge("\(summary.startingBots) 启动中", MCTheme.connecting)
+                        if starting > 0 {
+                            StatusBadge("\(starting) 启动中", MCTheme.connecting)
                         }
                     }
                 }

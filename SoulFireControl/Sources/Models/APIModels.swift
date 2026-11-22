@@ -48,9 +48,10 @@ struct BotFleetSummary: Codable, Sendable {
     let totalBots: Int
     let desiredBots: Int
     let onlineBots: Int
-    let startingBots: Int
-    let retryingBots: Int
-    let failedBots: Int
+    /// SoulFire 2.10+ 在对应状态无 bot 时不返回这些字段, 全部改可选
+    let startingBots: Int?
+    let retryingBots: Int?
+    let failedBots: Int?
 }
 
 struct InstanceInfoResponse: Codable, Sendable {
