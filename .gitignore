@@ -1,0 +1,24 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Certificates & profiles (NEVER commit these)
+*.p12
+*.p8
+*.mobileprovision
+*.cer
+
+# macOS
+.DS_Store
+
+# Research artifacts (large schema dumps)
+.research/
+
+# Node
+node_modules/

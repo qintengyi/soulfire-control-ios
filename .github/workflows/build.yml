@@ -1,0 +1,250 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+    paths:
+      - 'SoulFireControl/**'
+      - 'project.yml'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      signed:
+        description: '强制签名构建 (需要 P12/PROFILE secrets)'
+        type: boolean
+        default: false
+
+# 同一分支并发时取消旧构建
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Package IPA
+    runs-on: macos-15
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.2.app
+          xcodebuild -version
+          swift -version
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate --spec project.yml
+          ls -la *.xcodeproj
+
+      - name: Resolve signing mode
+        id: signing
+        env:
+          FORCE_SIGNED: ${{ github.event.inputs.signed }}
+          HAVE_P12: ${{ secrets.IOS_P12_BASE64 != '' }}
+          HAVE_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+          HAVE_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD != '' }}
+        run: |
+          if [ "$FORCE_SIGNED" = "true" ] || { [ "$HAVE_P12" = "true" ] && [ "$HAVE_PROFILE" = "true" ] && [ "$HAVE_P12_PASSWORD" = "true" ]; }; then
+            echo "mode=signed" >> $GITHUB_OUTPUT
+            echo "Signing mode: SIGNED (ad-hoc with provided p12 + provisioning profile)"
+          else
+            echo "mode=unsigned" >> $GITHUB_OUTPUT
+            echo "Signing mode: UNSIGNED (you can re-sign locally with 全能签/Sideloadly)"
+          fi
+
+      # ============ 签名模式: 导入证书 ============
+      - name: Import signing certificate
+        if: steps.signing.outputs.mode == 'signed'
+        env:
+          P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+        run: |
+          # 创建临时钥匙串
+          KEYCHAIN="soulfire-build.keychain"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          # 导入 p12
+          echo "$P12_BASE64" | base64 -d > certificate.p12
+          security import certificate.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+
+      - name: Install provisioning profile
+        if: steps.signing.outputs.mode == 'signed'
+        env:
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE_BASE64" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision
+          PROFILE_UUID=$(grep -aA1 UUID ~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision | grep -o '[A-F0-9-]\{36\}' | head -1)
+          echo "Profile UUID: $PROFILE_UUID"
+          echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+
+      # ============ 构建 ============
+      - name: Build (signed scheme)
+        if: steps.signing.outputs.mode == 'signed'
+        env:
+          PROFILE_UUID: ${{ env.PROFILE_UUID }}
+        run: |
+          xcodebuild \
+            -project SoulFireControl.xcodeproj \
+            -scheme SoulFireControl \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/SoulFireControl.xcarchive \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PROVISIONING_PROFILE="$PROFILE_UUID" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            DEVELOPMENT_TEAM="" \
+            clean archive | xcpretty
+
+      - name: Build (unsigned)
+        if: steps.signing.outputs.mode == 'unsigned'
+        run: |
+          xcodebuild \
+            -project SoulFireControl.xcodeproj \
+            -scheme SoulFireControl \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/SoulFireControl.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            clean archive | xcpretty
+
+      # ============ 导出 IPA ============
+      - name: Export signed IPA
+        if: steps.signing.outputs.mode == 'signed'
+        env:
+          PROFILE_UUID: ${{ env.PROFILE_UUID }}
+        run: |
+          mkdir -p build/export
+          cat > build/export/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>ad-hoc</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.soulfire.control</key>
+              <dict>
+                <key>uuid</key>
+                <string>$PROFILE_UUID</string>
+                <key>name</key>
+                <string>build</string>
+                <key>teamID</key>
+                <string></string>
+              </dict>
+            </dict>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>compileBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/SoulFireControl.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist build/export/ExportOptions.plist \
+            | xcpretty
+
+      - name: Export unsigned IPA (Payload method)
+        if: steps.signing.outputs.mode == 'unsigned'
+        run: |
+          # 未签名情况下 xcodebuild -exportArchive 会失败, 直接从 .app 打包
+          APP_PATH="build/SoulFireControl.xcarchive/Products/Applications/SoulFireControl.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "::error::未找到构建产物 .app"
+            exit 1
+          fi
+
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" build/Payload/
+          cd build
+          zip -qry SoulFireControl-unsigned.ipa Payload
+          cd ..
+          ls -la build/*.ipa
+
+      # ============ 清理钥匙串 ============
+      - name: Cleanup keychain
+        if: always() && steps.signing.outputs.mode == 'signed'
+        run: |
+          security delete-keychain soulfire-build.keychain 2>/dev/null || true
+
+      - name: Locate IPA
+        id: ipa
+        run: |
+          if [ -f build/export/SoulFireControl.ipa ]; then
+            mv build/export/SoulFireControl.ipa build/SoulFireControl.ipa
+            echo "path=build/SoulFireControl.ipa" >> $GITHUB_OUTPUT
+            echo "signed=true" >> $GITHUB_OUTPUT
+          elif [ -f build/SoulFireControl-unsigned.ipa ]; then
+            mv build/SoulFireControl-unsigned.ipa build/SoulFireControl.ipa
+            echo "path=build/SoulFireControl.ipa" >> $GITHUB_OUTPUT
+            echo "signed=false" >> $GITHUB_OUTPUT
+          else
+            echo "::error::未找到任何 IPA 产物"
+            exit 1
+          fi
+          ls -la build/SoulFireControl.ipa
+
+      - name: Rename with mode tag
+        run: |
+          if [ "${{ steps.ipa.outputs.signed }}" = "true" ]; then
+            cp build/SoulFireControl.ipa SoulFireControl-signed-${GITHUB_SHA::7}.ipa
+          else
+            cp build/SoulFireControl.ipa SoulFireControl-unsigned-${GITHUB_SHA::7}.ipa
+          fi
+          ls -la *.ipa
+
+      # ============ 上传产物 ============
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoulFireControl-ipa-${{ steps.ipa.outputs.signed == 'true' && 'signed' || 'unsigned' }}
+          path: |
+            *.ipa
+            build/export/ExportOptions.plist
+          retention-days: 30
+          compression-level: 0
+
+      - name: Build summary
+        run: |
+          echo "## 构建结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**签名模式**: ${{ steps.signing.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Xcode**: $(xcodebuild -version | head -1)" >> $GITHUB_STEP_SUMMARY
+          echo "**Git SHA**: ${GITHUB_SHA::7}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.ipa.outputs.signed }}" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ 已签名 IPA，可直接通过 Sideloadly 或 Xcode 安装到设备" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ 未签名 IPA，需用全能签/Sideloadly 本地重签后安装" >> $GITHUB_STEP_SUMMARY
+          fi
