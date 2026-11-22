@@ -254,14 +254,19 @@ struct BotDetailView: View {
 
     // MARK: 聊天/命令
 
+    @ViewBuilder
     private func chatCard(_ vm: BotDetailViewModel) -> some View {
+        let vm = self.vm ?? vm
         VStack(alignment: .leading, spacing: 10) {
             Text("聊天 / 命令")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(MCTheme.textSecondary)
 
             HStack(spacing: 8) {
-                TextField("发送聊天消息…", text: $vm.chatInput)
+                TextField("发送聊天消息…", text: Binding(
+                    get: { vm.chatInput },
+                    set: { vm.chatInput = $0 }
+                ))
                     .textFieldStyle(MCTextFieldStyle())
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -277,7 +282,10 @@ struct BotDetailView: View {
             }
 
             HStack(spacing: 8) {
-                TextField("执行 SoulFire 命令 (如 say hi)", text: $vm.commandInput)
+                TextField("执行 SoulFire 命令 (如 say hi)", text: Binding(
+                    get: { vm.commandInput },
+                    set: { vm.commandInput = $0 }
+                ))
                     .textFieldStyle(MCTextFieldStyle())
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()

@@ -66,12 +66,16 @@ struct LogsView: View {
 
     @ViewBuilder
     private func logContent(_ vm: LogsViewModel) -> some View {
+        let vm = self.vm ?? vm
         VStack(spacing: 0) {
             // 搜索栏
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(MCTheme.textTertiary)
-                TextField("搜索日志…", text: $vm.searchText)
+                TextField("搜索日志…", text: Binding(
+                    get: { vm.searchText },
+                    set: { vm.searchText = $0 }
+                ))
                     .font(.system(size: 13))
                     .foregroundStyle(MCTheme.textPrimary)
                     .textInputAutocapitalization(.never)
@@ -87,7 +91,10 @@ struct LogsView: View {
             .padding(.bottom, 8)
 
             HStack {
-                Toggle(isOn: $vm.autoRefresh) {
+                Toggle(isOn: Binding(
+                    get: { vm.autoRefresh },
+                    set: { vm.autoRefresh = $0 }
+                )) {
                     Text("自动刷新 (3s)")
                         .font(.system(size: 12))
                         .foregroundStyle(MCTheme.textSecondary)

@@ -26,26 +26,39 @@ struct ProxiesView: View {
 
     @ViewBuilder
     private func content(_ vm: ProxiesViewModel) -> some View {
+        let vm = self.vm ?? vm
         List {
             Section("添加代理") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Picker("类型", selection: $vm.type) {
+                    Picker("类型", selection: Binding(
+                        get: { vm.type },
+                        set: { vm.type = $0 }
+                    )) {
                         ForEach(ProxyType.allCases, id: \.self) { t in
                             Text(t.rawValue).tag(t)
                         }
                     }
                     .pickerStyle(.segmented)
 
-                    TextField("host:port", text: $vm.address)
+                    TextField("host:port", text: Binding(
+                        get: { vm.address },
+                        set: { vm.address = $0 }
+                    ))
                         .textFieldStyle(MCTextFieldStyle())
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     HStack(spacing: 10) {
-                        TextField("用户名 (可选)", text: $vm.username)
+                        TextField("用户名 (可选)", text: Binding(
+                            get: { vm.username },
+                            set: { vm.username = $0 }
+                        ))
                             .textFieldStyle(MCTextFieldStyle())
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        TextField("密码 (可选)", text: $vm.password)
+                        TextField("密码 (可选)", text: Binding(
+                            get: { vm.password },
+                            set: { vm.password = $0 }
+                        ))
                             .textFieldStyle(MCTextFieldStyle())
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
@@ -73,7 +86,10 @@ struct ProxiesView: View {
                     Text("每行一个: host:port 或 socks5://user:pass@host:port")
                         .font(.system(size: 11))
                         .foregroundStyle(MCTheme.textTertiary)
-                    TextEditor(text: $vm.bulkText)
+                    TextEditor(text: Binding(
+                        get: { vm.bulkText },
+                        set: { vm.bulkText = $0 }
+                    ))
                         .font(.system(size: 12, design: .monospaced))
                         .frame(minHeight: 90)
                         .scrollContentBackground(.hidden)
