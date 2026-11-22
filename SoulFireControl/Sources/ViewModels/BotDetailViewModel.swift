@@ -46,6 +46,10 @@ final class BotDetailViewModel {
             liveState = info.liveState
             status = info.status
             errorMessage = nil
+            // bot 在线时自动加载背包 (首次进入或刷新)
+            if info.liveState != nil, inventory == nil {
+                await loadInventory()
+            }
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
         }
