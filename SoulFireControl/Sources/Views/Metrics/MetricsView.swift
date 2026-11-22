@@ -69,7 +69,7 @@ struct MetricsView: View {
                     ("已加载区块", snapshot.totalLoadedChunks.map(String.init) ?? "—"),
                     ("跟踪实体", snapshot.totalTrackedEntities.map(String.init) ?? "—"),
                 ]
-                metricGrid(rows)
+                MetricGrid(rows: rows)
             } else {
                 Text("暂无数据")
                     .font(.system(size: 12))
@@ -88,33 +88,7 @@ struct MetricsView: View {
                 .foregroundStyle(MCTheme.textSecondary)
 
             if let snapshot = vm.latestServerSnapshot {
-                let cpuPercent = snapshot.processCpuLoad.map { max(0, $0) * 100 }
-                let sysPercent = snapshot.systemCpuLoad.map { max(0, $0) * 100 }
-                let heapUsed = Double(snapshot.heapUsedBytes ?? "")
-                let heapMax = Double(snapshot.heapMaxBytes ?? "")
-
-                let rows: [(String, String)] = [
-                    ("JVM CPU", cpuPercent.map { String(format: "%.1f%%", $0) } ?? "—"),
-                    ("系统 CPU", sysPercent.map { String(format: "%.1f%%", $0) } ?? "—"),
-                    ("堆内存", {
-                        guard let used = heapUsed else { return "—" }
-                        let maxV = (heapMax ?? 0) > 0 ? heapMax! : nil
-                        if let maxV {
-                            return "\(ByteFormat.format(used)) / \(ByteFormat.format(maxV))"
-                        }
-                        return ByteFormat.format(used)
-                    }()),
-                    ("线程数", snapshot.threadCount.map(String.init) ?? "—"),
-                    ("运行时长", UptimeFormat.format(snapshot.uptimeMs)),
-                    ("全部在线", "\(snapshot.totalBotsOnline ?? 0) / \(snapshot.totalBotsTotal ?? 0)"),
-                ]
-                metricGrid(rows)
-
-                // CPU 条
-                if let cpu = cpuPercent {
-                    CPUBarView(cpu: cpu)
-                        .padding(.top, 4)
-                }
+                ServerMetricsContent(snapshot: snapshot)
             } else {
                 Text("暂无数据")
                     .font(.system(size: 12))
@@ -122,47 +96,6 @@ struct MetricsView: View {
             }
         }
         .mcCard()
-    }
-
-    private func metricGrid(_ rows: [(String, String)]) -> some View {
-        // 两列等高对齐: 用 HStack 每行两项, 避免 LazyVGrid 高度错位
-        let pairs = stride(from: 0, to: rows.count, by: 2).map { i in
-            (rows[i], i + 1 < rows.count ? rows[i + 1] : nil)
-        }
-        return VStack(spacing: 0) {
-            ForEach(0..<pairs.count, id: \.self) { i in
-                HStack(spacing: 0) {
-                    metricCell(pairs[i].0)
-                    if let right = pairs[i].1 {
-                        metricCell(right)
-                    } else {
-                        Color.clear
-                    }
-                }
-                if i < pairs.count - 1 {
-                    Divider()
-                        .background(MCTheme.surfaceRaised.opacity(0.5))
-                        .padding(.horizontal, 8)
-                }
-            }
-        }
-    }
-
-    private func metricCell(_ row: (String, String)) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(row.0)
-                .font(.system(size: 11))
-                .foregroundStyle(MCTheme.textTertiary)
-            Text(row.1)
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .foregroundStyle(MCTheme.textPrimary)
-                .textSelection(.enabled)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 10)
     }
 }
 
@@ -197,5 +130,100 @@ struct CPUBarView: View {
             }
             .frame(height: 6)
         }
+    }
+}
+
+// MARK: - 服务器指标内容 (独立子视图, 避免类型推断超时)
+
+struct ServerMetricsContent: View {
+    let snapshot: ServerMetricsSnapshot
+
+    private var cpuPercent: Double? {
+        snapshot.processCpuLoad.map { max(0, $0) * 100 }
+    }
+
+    private var sysPercent: Double? {
+        snapshot.systemCpuLoad.map { max(0, $0) * 100 }
+    }
+
+    private var rows: [(String, String)] {
+        let heapUsed = Double(snapshot.heapUsedBytes ?? "")
+        let heapMax = Double(snapshot.heapMaxBytes ?? "")
+        var heapStr = "—"
+        if let used = heapUsed {
+            if let maxV = heapMax, maxV > 0 {
+                heapStr = "\(ByteFormat.format(used)) / \(ByteFormat.format(maxV))"
+            } else {
+                heapStr = ByteFormat.format(used)
+            }
+        }
+        return [
+            ("JVM CPU", cpuPercent.map { String(format: "%.1f%%", $0) } ?? "—"),
+            ("系统 CPU", sysPercent.map { String(format: "%.1f%%", $0) } ?? "—"),
+            ("堆内存", heapStr),
+            ("线程数", snapshot.threadCount.map(String.init) ?? "—"),
+            ("运行时长", UptimeFormat.format(snapshot.uptimeMs)),
+            ("全部在线", "\(snapshot.totalBotsOnline ?? 0) / \(snapshot.totalBotsTotal ?? 0)"),
+        ]
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            MetricGrid(rows: rows)
+            if let cpu = cpuPercent {
+                CPUBarView(cpu: cpu)
+                    .padding(.top, 4)
+            }
+        }
+    }
+}
+
+// MARK: - 指标网格 (独立子视图)
+
+struct MetricGrid: View {
+    let rows: [(String, String)]
+
+    var body: some View {
+        let pairs = stride(from: 0, to: rows.count, by: 2).map { i in
+            (rows[i], i + 1 < rows.count ? rows[i + 1] : nil)
+        }
+        VStack(spacing: 0) {
+            ForEach(0..<pairs.count, id: \.self) { i in
+                HStack(spacing: 0) {
+                    MetricCell(row: pairs[i].0)
+                    if let right = pairs[i].1 {
+                        MetricCell(row: right)
+                    } else {
+                        Color.clear
+                    }
+                }
+                if i < pairs.count - 1 {
+                    Divider()
+                        .background(MCTheme.surfaceRaised.opacity(0.5))
+                        .padding(.horizontal, 8)
+                }
+            }
+        }
+    }
+}
+
+struct MetricCell: View {
+    let row: (String, String)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(row.0)
+                .font(.system(size: 11))
+                .foregroundStyle(MCTheme.textTertiary)
+            Text(row.1)
+                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .foregroundStyle(MCTheme.textPrimary)
+                .textSelection(.enabled)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 10)
     }
 }
