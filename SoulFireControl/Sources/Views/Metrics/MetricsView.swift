@@ -110,38 +110,10 @@ struct MetricsView: View {
                 ]
                 metricGrid(rows)
 
-                // CPU 条 (用 maxWidth 比例, 避免 GeometryReader 在 HStack 里的布局异常)
+                // CPU 条
                 if let cpu = cpuPercent {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("CPU 占用")
-                                .font(.system(size: 11))
-                                .foregroundStyle(MCTheme.textTertiary)
-                            Spacer()
-                            Text(String(format: "%.0f%%", cpu))
-                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(cpu > 80 ? MCTheme.redstone : (cpu > 50 ? MCTheme.gold : MCTheme.emerald))
-                        }
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule()
-                                    .fill(MCTheme.backgroundElevated)
-                                Capsule()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: cpu > 80 ? [MCTheme.redstone, MCTheme.redstone.opacity(0.7)] :
-                                                      cpu > 50 ? [MCTheme.gold, MCTheme.gold.opacity(0.7)] :
-                                                                 [MCTheme.emerald, MCTheme.emerald.opacity(0.7)],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    .frame(width: max(0, geo.size.width * min(cpu / 100, 1)))
-                            }
-                        }
-                        .frame(height: 6)
-                    }
-                    .padding(.top, 4)
+                    CPUBarView(cpu: cpu)
+                        .padding(.top, 4)
                 }
             } else {
                 Text("暂无数据")
@@ -191,5 +163,39 @@ struct MetricsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 8)
         .padding(.vertical, 10)
+    }
+}
+
+// MARK: - CPU 进度条 (独立子视图, 避免类型推断超时)
+
+struct CPUBarView: View {
+    let cpu: Double
+
+    private var barColor: Color {
+        cpu > 80 ? MCTheme.redstone : (cpu > 50 ? MCTheme.gold : MCTheme.emerald)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("CPU 占用")
+                    .font(.system(size: 11))
+                    .foregroundStyle(MCTheme.textTertiary)
+                Spacer()
+                Text(String(format: "%.0f%%", cpu))
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(barColor)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(MCTheme.backgroundElevated)
+                    Capsule()
+                        .fill(barColor.opacity(0.85))
+                        .frame(width: max(0, geo.size.width * min(cpu / 100, 1)))
+                }
+            }
+            .frame(height: 6)
+        }
     }
 }
