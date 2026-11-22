@@ -22,15 +22,15 @@ final class InstancesViewModel {
     }
 
     @MainActor
-    func createInstance(name: String) async -> Bool {
-        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+    func createInstance(name: String) async -> String? {
+        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
         do {
-            let _ = try await SoulFireAPI.createInstance(name: name)
+            let id = try await SoulFireAPI.createInstance(name: name)
             await loadInstances()
-            return true
+            return id
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
-            return false
+            return nil
         }
     }
 

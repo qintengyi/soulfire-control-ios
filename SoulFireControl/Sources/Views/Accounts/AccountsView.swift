@@ -24,12 +24,20 @@ struct AccountsView: View {
                 await newVM.loadAccounts()
             }
         }
+        // instanceId 变化时强制重建 VM (切换实例后不再操作旧实例)
+        .id(instanceId)
     }
 
     @ViewBuilder
     private func content() -> some View {
-        // vm 在调用前已确保非空 (body 中 if let vm)
-        let vm = self.vm!
+        guard let vm = self.vm else {
+            return AnyView(EmptyView())
+        }
+        let _ = vm // 捕获
+        AnyView(contentBody(vm))
+    }
+
+    private func contentBody(_ vm: AccountsViewModel) -> some View {
         List {
             // 批量添加离线账号
             Section {

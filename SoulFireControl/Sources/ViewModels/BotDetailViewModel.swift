@@ -46,9 +46,13 @@ final class BotDetailViewModel {
             liveState = info.liveState
             status = info.status
             errorMessage = nil
-            // bot 在线时自动加载背包 (首次进入或刷新)
-            if info.liveState != nil, inventory == nil {
-                await loadInventory()
+            // Bot 在线且背包未加载时自动加载; Bot 离线时清理陈旧背包
+            if info.liveState != nil {
+                if inventory == nil {
+                    await loadInventory()
+                }
+            } else {
+                inventory = nil
             }
         } catch {
             errorMessage = (error as? APIError)?.localizedDescription ?? error.localizedDescription
@@ -170,15 +174,18 @@ final class BotDetailViewModel {
         }
     }
 
+    // 视角/飞行状态 (服务端 liveState 不返回 flying, 本地记忆上次请求)
+    var isFlying = false
+
     @MainActor
     func toggleFlying() async {
-        let wantFly = !(liveState?.gameMode == "GAME_MODE_CREATIVE") // 简单提示用
-        _ = wantFly
+        let wantFly = !isFlying
         do {
-            try await SoulFireAPI.setFlying(instanceId: instanceId, botId: botId, flying: true)
-            actionMessage = "已请求飞行"
+            try await SoulFireAPI.setFlying(instanceId: instanceId, botId: botId, flying: wantFly)
+            isFlying = wantFly
+            actionMessage = wantFly ? "已请求开启飞行" : "已请求关闭飞行"
         } catch {
-            actionMessage = "失败：\((error as? APIError)?.localizedDescription ?? "")"
+            actionMessage = "飞行切换失败：\((error as? APIError)?.localizedDescription ?? "")"
         }
     }
 

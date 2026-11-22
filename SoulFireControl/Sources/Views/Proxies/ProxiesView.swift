@@ -22,11 +22,12 @@ struct ProxiesView: View {
                 await newVM.loadProxies()
             }
         }
+        // instanceId 变化时强制重建 VM
+        .id(instanceId)
     }
 
     @ViewBuilder
     private func content(_ vm: ProxiesViewModel) -> some View {
-        let vm = self.vm ?? vm
         List {
             Section("添加代理") {
                 VStack(alignment: .leading, spacing: 10) {
@@ -122,8 +123,9 @@ struct ProxiesView: View {
                     proxyRow(proxy, index: index)
                 }
                 .onDelete { offsets in
+                    // 反向排序删除, 避免 index 移位
                     Task {
-                        for index in offsets {
+                        for index in offsets.sorted(by: >) {
                             await vm.removeProxy(index: index)
                         }
                     }

@@ -51,6 +51,8 @@ struct LogsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        // scope 变化时强制重建 VM (全局 ↔ 实例切换)
+        .id(scopeId)
         .task {
             if vm == nil {
                 let newVM = LogsViewModel(scope: scope)
@@ -64,9 +66,16 @@ struct LogsView: View {
         }
     }
 
+    /// 用 scope 生成稳定标识, scope 变化时触发 .id 变化 → 整个 view 重建
+    private var scopeId: String {
+        if scope.global != nil { return "global" }
+        if let inst = scope.instance { return "instance:\(inst.instanceId)" }
+        if let bot = scope.bot { return "bot:\(bot.botId)" }
+        return "unknown"
+    }
+
     @ViewBuilder
     private func logContent(_ vm: LogsViewModel) -> some View {
-        let vm = self.vm ?? vm
         VStack(spacing: 0) {
             // 搜索栏
             HStack(spacing: 8) {

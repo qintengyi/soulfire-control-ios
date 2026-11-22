@@ -266,19 +266,19 @@ struct BotInventoryStateResponse: Codable, Sendable {
 }
 
 struct ContainerLayout: Codable, Sendable {
-    let title: String
-    let regions: [SlotRegion]
-    let totalSlots: Int
+    let title: String?
+    let regions: [SlotRegion]?
+    let totalSlots: Int?
     let containerType: String?
 }
 
 struct SlotRegion: Codable, Sendable {
-    let id: String
-    let label: String
+    let id: String?
+    let label: String?
     /// SoulFire 对单槽位 region (如 crafting_output) 省略此字段, 改可选
     let startIndex: Int?
-    let slotCount: Int
-    let columns: Int
+    let slotCount: Int?
+    let columns: Int?
     /// SoulFire 对部分 region 省略此字段, 改可选
     let type: String?
 }
@@ -435,8 +435,8 @@ struct GetServerMetricsResponse: Codable, Sendable {
 
 struct MetricsSnapshot: Codable, Sendable {
     let timestamp: String
-    let botsOnline: Int
-    let botsTotal: Int
+    let botsOnline: Int?
+    let botsTotal: Int?
     let packetsSentTotal: String?
     let packetsReceivedTotal: String?
     let bytesSentTotal: String?

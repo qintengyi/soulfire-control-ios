@@ -349,7 +349,6 @@ struct BotDetailView: View {
 
     @ViewBuilder
     private func chatCard(_ vm: BotDetailViewModel) -> some View {
-        let vm = self.vm ?? vm
         VStack(alignment: .leading, spacing: 10) {
             Text("聊天 / 命令")
                 .font(.system(size: 13, weight: .bold))
@@ -411,7 +410,7 @@ struct BotDetailView: View {
                 quickAction("重生", "heart.circle.fill", MCTheme.redstone) {
                     Task { await vm.respawn() }
                 }
-                quickAction("飞行", "wing.raise", MCTheme.diamond) {
+                quickAction("飞行", vm.isFlying ? "checkmark.circle.fill" : "wing.raise", vm.isFlying ? MCTheme.emerald : MCTheme.diamond) {
                     Task { await vm.toggleFlying() }
                 }
             }
@@ -539,9 +538,9 @@ struct InventoryGrid: View {
     /// 按 region 渲染每个区域
     var body: some View {
         VStack(spacing: 12) {
-            ForEach(inventory.layout.regions, id: \.id) { region in
+            ForEach(inventory.layout.regions ?? [], id: \.id) { region in
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(region.label)
+                    Text(region.label ?? region.id ?? "—")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(MCTheme.textTertiary)
                     slotGrid(region)
@@ -585,8 +584,9 @@ struct InventoryGrid: View {
     }
 
     private func slotGrid(_ region: SlotRegion) -> some View {
-        let columns = max(region.columns, 1)
-        let rows = (region.slotCount + columns - 1) / columns
+        let columns = max(region.columns ?? 1, 1)
+        let slotCount = region.slotCount ?? 0
+        let rows = slotCount > 0 ? (slotCount + columns - 1) / columns : 0
         let itemMap = Dictionary(uniqueKeysWithValues: inventory.slots.map { ($0.slot, $0) })
         let start = region.startIndex ?? 0
 
@@ -595,7 +595,7 @@ struct InventoryGrid: View {
                 HStack(spacing: 4) {
                     ForEach(0..<columns, id: \.self) { col in
                         let slotIndex = start + row * columns + col
-                        if slotIndex < start + region.slotCount {
+                        if slotIndex < start + slotCount {
                             slotView(itemMap[slotIndex], clickable: true)
                         }
                     }

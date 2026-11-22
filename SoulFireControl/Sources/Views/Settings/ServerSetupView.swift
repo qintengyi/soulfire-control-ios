@@ -116,15 +116,14 @@ struct ServerSetupView: View {
                 .buttonStyle(.plain)
                 .disabled(isConnecting || host.isEmpty || token.isEmpty)
 
-                if let initialError, showError == false {
-                    Text(initialError)
+                // 错误信息: 优先显示本次连接错误, 其次显示初始错误
+                if showError {
+                    Text(errorText)
                         .font(.system(size: 13))
                         .foregroundStyle(MCTheme.redstone)
                         .multilineTextAlignment(.center)
-                }
-
-                if showError {
-                    Text(errorText)
+                } else if let initialError {
+                    Text(initialError)
                         .font(.system(size: 13))
                         .foregroundStyle(MCTheme.redstone)
                         .multilineTextAlignment(.center)

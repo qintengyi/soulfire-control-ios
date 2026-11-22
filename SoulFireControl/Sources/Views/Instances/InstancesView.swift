@@ -105,9 +105,11 @@ struct InstancesView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("创建") {
                         Task {
-                            if await vm.createInstance(name: newName) {
+                            if let newId = await vm.createInstance(name: newName) {
                                 showCreateSheet = false
-                                appVM.showToast("实例已创建")
+                                // 自动选中新实例
+                                appVM.selectedInstanceId = newId
+                                appVM.showToast("实例已创建并选中")
                             }
                         }
                     }

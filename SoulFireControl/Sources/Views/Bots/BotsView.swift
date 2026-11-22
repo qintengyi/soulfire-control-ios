@@ -28,6 +28,7 @@ struct BotsView: View {
 
     @State private var vm: BotsViewModel?
     @State private var selection = Set<String>()
+    @State private var editMode: EditMode = .inactive
 
     var body: some View {
         NavigationStack {
@@ -40,30 +41,66 @@ struct BotsView: View {
                 }
             }
             .navigationTitle("Bots")
+            .environment(\.editMode, $editMode)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if editMode == .active {
+                        Button("完成") {
+                            editMode = .inactive
+                            selection.removeAll()
+                        }
+                        .foregroundStyle(MCTheme.diamond)
+                    } else {
+                        Button {
+                            editMode = .active
+                        } label: {
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 16))
+                                .foregroundStyle(MCTheme.textSecondary)
+                        }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 14) {
-                        RefreshButton { Task { await vm?.loadBots() } }
-                        Menu {
+                        if editMode == .active, !selection.isEmpty {
                             Button {
-                                Task { await vm?.setDesired(running: true, botIds: vm?.bots.map(\.profileId) ?? []) }
+                                Task { await vm?.setDesired(running: true, botIds: Array(selection)) }
+                                selection.removeAll()
                             } label: {
-                                Label("启动全部", systemImage: "play.fill")
+                                Image(systemName: "play.fill")
+                                    .foregroundStyle(MCTheme.emerald)
                             }
                             Button {
-                                Task { await vm?.setDesired(running: false, botIds: vm?.bots.map(\.profileId) ?? []) }
+                                Task { await vm?.setDesired(running: false, botIds: Array(selection)) }
+                                selection.removeAll()
                             } label: {
-                                Label("停止全部", systemImage: "stop.fill")
+                                Image(systemName: "stop.fill")
+                                    .foregroundStyle(MCTheme.flame)
                             }
-                            Button {
-                                Task { await vm?.restart(botIds: vm?.bots.map(\.profileId) ?? []) }
+                        }
+                        if editMode == .inactive {
+                            RefreshButton { Task { await vm?.loadBots() } }
+                            Menu {
+                                Button {
+                                    Task { await vm?.setDesired(running: true, botIds: vm?.bots.map(\.profileId) ?? []) }
+                                } label: {
+                                    Label("启动全部", systemImage: "play.fill")
+                                }
+                                Button {
+                                    Task { await vm?.setDesired(running: false, botIds: vm?.bots.map(\.profileId) ?? []) }
+                                } label: {
+                                    Label("停止全部", systemImage: "stop.fill")
+                                }
+                                Button {
+                                    Task { await vm?.restart(botIds: vm?.bots.map(\.profileId) ?? []) }
+                                } label: {
+                                    Label("重启全部", systemImage: "arrow.triangle.2.circlepath")
+                                }
                             } label: {
-                                Label("重启全部", systemImage: "arrow.triangle.2.circlepath")
+                                Image(systemName: "ellipsis.circle")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(MCTheme.diamond)
                             }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 16))
-                                .foregroundStyle(MCTheme.diamond)
                         }
                     }
                 }
@@ -84,50 +121,28 @@ struct BotsView: View {
 
     @ViewBuilder
     private func botList(_ vm: BotsViewModel) -> some View {
-        List {
-            if !selection.isEmpty {
-                batchActionBar(vm)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-            }
-
+        List(selection: $selection) {
             ForEach(filteredBots) { bot in
-                if selection.isEmpty {
-                    // 非选择模式: NavigationLink 直接导航到详情
-                    NavigationLink {
-                        BotDetailView(instanceId: instanceId, bot: bot)
-                    } label: {
-                        BotRow(bot: bot, isSelected: false)
-                    }
-                    .buttonStyle(.plain)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if bot.desiredRunning {
-                            Button(role: .destructive) {
-                                Task { await vm.setDesired(running: false, botIds: [bot.profileId]) }
-                            } label: { Label("停止", systemImage: "stop.fill") }
-                        } else {
-                            Button {
-                                Task { await vm.setDesired(running: true, botIds: [bot.profileId]) }
-                            } label: { Label("启动", systemImage: "play.fill") }
-                                .tint(MCTheme.emerald)
-                        }
-                    }
-                    .listRowBackground(MCTheme.background)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
-                } else {
-                    // 选择模式: 点击切换选中
-                    Button {
-                        toggleSelect(bot.profileId)
-                    } label: {
-                        BotRow(bot: bot, isSelected: selection.contains(bot.profileId))
-                    }
-                    .buttonStyle(.plain)
-                    .listRowBackground(MCTheme.background)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                NavigationLink {
+                    BotDetailView(instanceId: instanceId, bot: bot)
+                } label: {
+                    BotRow(bot: bot, isSelected: selection.contains(bot.profileId))
                 }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    if bot.desiredRunning {
+                        Button(role: .destructive) {
+                            Task { await vm.setDesired(running: false, botIds: [bot.profileId]) }
+                        } label: { Label("停止", systemImage: "stop.fill") }
+                    } else {
+                        Button {
+                            Task { await vm.setDesired(running: true, botIds: [bot.profileId]) }
+                        } label: { Label("启动", systemImage: "play.fill") }
+                            .tint(MCTheme.emerald)
+                    }
+                }
+                .listRowBackground(MCTheme.background)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
             }
         }
         .listStyle(.plain)
@@ -143,7 +158,6 @@ struct BotsView: View {
                 )
             }
         }
-        .onChange(of: selection) { _, _ in }
     }
 
     @State private var searchText = ""
@@ -154,51 +168,6 @@ struct BotsView: View {
         return vm.bots.filter { bot in
             (bot.accountName ?? "").localizedCaseInsensitiveContains(searchText)
         }
-    }
-
-    private func toggleSelect(_ id: String) {
-        if selection.contains(id) { selection.remove(id) } else { selection.insert(id) }
-    }
-
-    private func batchActionBar(_ vm: BotsViewModel) -> some View {
-        HStack(spacing: 10) {
-            Text("已选 \(selection.count) 个")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(MCTheme.textPrimary)
-            Spacer()
-            Button {
-                Task { await vm.setDesired(running: true, botIds: Array(selection)) }
-                selection.removeAll()
-            } label: {
-                Image(systemName: "play.fill")
-                    .foregroundStyle(MCTheme.emerald)
-            }
-            .buttonStyle(.plain)
-            Button {
-                Task { await vm.setDesired(running: false, botIds: Array(selection)) }
-                selection.removeAll()
-            } label: {
-                Image(systemName: "stop.fill")
-                    .foregroundStyle(MCTheme.flame)
-            }
-            .buttonStyle(.plain)
-            Button {
-                Task { await vm.restart(botIds: Array(selection)) }
-                selection.removeAll()
-            } label: {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .foregroundStyle(MCTheme.gold)
-            }
-            .buttonStyle(.plain)
-            Button {
-                selection.removeAll()
-            } label: {
-                Image(systemName: "xmark")
-                    .foregroundStyle(MCTheme.textSecondary)
-            }
-            .buttonStyle(.plain)
-        }
-        .mcCard(padding: 10)
     }
 }
 

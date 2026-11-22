@@ -22,6 +22,8 @@ struct MetricsView: View {
                 await newVM.loadMetrics()
             }
         }
+        // instanceId 变化时强制重建 VM
+        .id(instanceId)
     }
 
     @ViewBuilder
@@ -59,7 +61,7 @@ struct MetricsView: View {
 
             if let snapshot = vm.latestInstanceSnapshot {
                 let rows: [(String, String)] = [
-                    ("在线 Bot", "\(snapshot.botsOnline) / \(snapshot.botsTotal)"),
+                    ("在线 Bot", "\(snapshot.botsOnline ?? 0) / \(snapshot.botsTotal ?? 0)"),
                     ("发包速率", "\(Int(snapshot.packetsSentPerSecond ?? 0)) pps"),
                     ("收包速率", "\(Int(snapshot.packetsReceivedPerSecond ?? 0)) pps"),
                     ("发送流量", ByteFormat.rate(snapshot.bytesSentPerSecond)),
