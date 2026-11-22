@@ -143,91 +143,6 @@ struct BotDetailView: View {
         }
         return "点击查看 Bot 背包"
     }
-}
-
-// MARK: - 背包 Sheet (完整背包界面)
-
-struct InventorySheet: View {
-    let vm: BotDetailViewModel
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 14) {
-                    if vm.isLoadingInventory && vm.inventory == nil {
-                        VStack(spacing: 12) {
-                            ProgressView()
-                                .tint(MCTheme.diamond)
-                                .controlSize(.large)
-                            Text("正在加载背包…")
-                                .font(.system(size: 13))
-                                .foregroundStyle(MCTheme.textSecondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 60)
-                    } else if let inventory = vm.inventory {
-                        InventoryGrid(
-                            inventory: inventory,
-                            onSlotClick: { slot in Task { await vm.clickSlot(slot) } }
-                        )
-                    } else {
-                        VStack(spacing: 12) {
-                            Image(systemName: "backpack")
-                                .font(.system(size: 44))
-                                .foregroundStyle(MCTheme.textTertiary)
-                            Text("暂无背包数据")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(MCTheme.textSecondary)
-                            Text("Bot 需在线才能读取背包")
-                                .font(.system(size: 12))
-                                .foregroundStyle(MCTheme.textTertiary)
-                            Button {
-                                Task { await vm.loadInventory() }
-                            } label: {
-                                Label("重新加载", systemImage: "arrow.clockwise")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(MCTheme.diamond)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        Capsule().fill(MCTheme.diamond.opacity(0.12))
-                                            .overlay(Capsule().strokeBorder(MCTheme.diamond.opacity(0.4), lineWidth: 0.5))
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 60)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 30)
-            }
-            .background(MCTheme.background.ignoresSafeArea())
-            .navigationTitle("背包")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("关闭") { dismiss() }
-                        .foregroundStyle(MCTheme.textSecondary)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await vm.loadInventory() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(MCTheme.diamond)
-                    }
-                    .disabled(vm.isLoadingInventory)
-                }
-            }
-        }
-        .presentationDetents([.large])
-        .presentationBackground(MCTheme.background)
-    }
-}
 
     // MARK: 状态卡
 
@@ -529,6 +444,90 @@ struct InventorySheet: View {
     }
 
     // MARK: 背包入口与 Sheet 已移至下方独立实现
+}
+
+// MARK: - 背包 Sheet (完整背包界面)
+
+struct InventorySheet: View {
+    let vm: BotDetailViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 14) {
+                    if vm.isLoadingInventory && vm.inventory == nil {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .tint(MCTheme.diamond)
+                                .controlSize(.large)
+                            Text("正在加载背包…")
+                                .font(.system(size: 13))
+                                .foregroundStyle(MCTheme.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                    } else if let inventory = vm.inventory {
+                        InventoryGrid(
+                            inventory: inventory,
+                            onSlotClick: { slot in Task { await vm.clickSlot(slot) } }
+                        )
+                    } else {
+                        VStack(spacing: 12) {
+                            Image(systemName: "backpack")
+                                .font(.system(size: 44))
+                                .foregroundStyle(MCTheme.textTertiary)
+                            Text("暂无背包数据")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(MCTheme.textSecondary)
+                            Text("Bot 需在线才能读取背包")
+                                .font(.system(size: 12))
+                                .foregroundStyle(MCTheme.textTertiary)
+                            Button {
+                                Task { await vm.loadInventory() }
+                            } label: {
+                                Label("重新加载", systemImage: "arrow.clockwise")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(MCTheme.diamond)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule().fill(MCTheme.diamond.opacity(0.12))
+                                            .overlay(Capsule().strokeBorder(MCTheme.diamond.opacity(0.4), lineWidth: 0.5))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 30)
+            }
+            .background(MCTheme.background.ignoresSafeArea())
+            .navigationTitle("背包")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("关闭") { dismiss() }
+                        .foregroundStyle(MCTheme.textSecondary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await vm.loadInventory() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(MCTheme.diamond)
+                    }
+                    .disabled(vm.isLoadingInventory)
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .presentationBackground(MCTheme.background)
+    }
 }
 
 // MARK: - 背包网格
