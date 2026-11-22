@@ -117,6 +117,6 @@ final class BotsViewModel {
         }
     }
 
-    var onlineCount: Int { bots.filter(\.isOnline).count }
+    var onlineCount: Int { bots.filter { $0.isOnline ?? false }.count }
     var runningCount: Int { bots.filter(\.desiredRunning).count }
 }

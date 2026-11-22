@@ -33,7 +33,7 @@ extension BotListEntry {
         case "BOT_CONNECTION_PHASE_SPAWNED": return "已出生"
         case "BOT_CONNECTION_PHASE_DIED": return "已死亡"
         case "BOT_CONNECTION_PHASE_DISCONNECTED": return "已断开"
-        default: return isOnline ? "在线" : "离线"
+        default: return (isOnline ?? false) ? "在线" : "离线"
         }
     }
 }

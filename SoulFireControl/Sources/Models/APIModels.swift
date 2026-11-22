@@ -202,7 +202,8 @@ struct BotListResponse: Codable, Sendable {
 
 struct BotListEntry: Codable, Sendable, Identifiable, Hashable {
     let profileId: String
-    let isOnline: Bool
+    /// SoulFire 2.10+ 对离线 bot 省略此字段, 改可选
+    let isOnline: Bool?
     let liveState: BotLiveState?
     let pingMs: Int?
     let connectionPhase: String
