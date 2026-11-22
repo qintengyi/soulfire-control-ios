@@ -130,27 +130,36 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build
+          # 未签名模式用 build (而非 archive): archive 在 CODE_SIGNING_ALLOWED=NO 下
+          # 产物落在 DerivedData 的 InstallationBuildProductsLocation (空壳),
+          # 真正带可执行文件的 .app 在 BuildProductsPath/Release-iphoneos/.
+          # 用 -derivedDataPath 把产物固定到 build/DerivedData, 路径可预测.
           xcodebuild \
             -project SoulFireControl.xcodeproj \
             -scheme SoulFireControl \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            -archivePath build/SoulFireControl.xcarchive \
+            -derivedDataPath build/DerivedData \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
-            clean archive 2>&1 | tee build/build.log | xcpretty || true
-          # 用 xcodebuild 退出码判定, 不被 tee/xcpretty 干扰
-          if ! grep -q "ARCHIVE SUCCEEDED" build/build.log 2>/dev/null && \
-             ! find ~/Library/Developer/Xcode/DerivedData -name "SoulFireControl.app" -path "*ArchiveIntermediates*" 2>/dev/null | grep -q .; then
-            echo "::error::archive 失败, 下方为完整日志:"
+            clean build 2>&1 | tee build/build.log | xcpretty; PIPE_RC=${PIPESTATUS[0]}
+          if [ "$PIPE_RC" -ne 0 ]; then
+            echo "::error::build 失败 (exit $PIPE_RC), 下方为完整日志:"
             cat build/build.log 2>/dev/null || true
             exit 1
           fi
-          echo "✓ archive 完成"
-          echo "ARCHIVE_PATH=$(pwd)/build/SoulFireControl.xcarchive" >> $GITHUB_ENV
+          APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/SoulFireControl.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "::error::未找到构建产物: $APP_PATH"
+            echo "build/DerivedData 结构:"
+            find build/DerivedData -name "*.app" -type d 2>/dev/null
+            exit 1
+          fi
+          echo "✓ build 完成, .app: $APP_PATH"
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
 
       # 构建失败时打印完整原始日志 (xcpretty 会吞掉真实错误)
       - name: Dump build log on failure
@@ -214,30 +223,21 @@ jobs:
       - name: Export unsigned IPA (Payload method)
         if: steps.signing.outputs.mode == 'unsigned'
         run: |
-          # 未签名情况下 xcodebuild -exportArchive 会失败, 直接从 .app 打包
-          # 优先用规范 xcarchive 路径, 找不到则兜底搜索 DerivedData
-          APP_PATH=""
-          CANDIDATES=(
-            "build/SoulFireControl.xcarchive/Products/Applications/SoulFireControl.app"
-            "$HOME/Library/Developer/Xcode/DerivedData/SoulFireControl-*/Build/Intermediates.noindex/ArchiveIntermediates/SoulFireControl/InstallationBuildProductsLocation/Applications/SoulFireControl.app"
-          )
-          for c in "${CANDIDATES[@]}"; do
-            for m in $c; do
-              if [ -d "$m" ]; then
-                APP_PATH="$m"
-                break 2
-              fi
-            done
-          done
-
-          if [ -z "$APP_PATH" ]; then
-            echo "::error::未找到构建产物 .app"
-            echo "搜索过的路径:"
-            find build "$HOME/Library/Developer/Xcode/DerivedData" -name "SoulFireControl.app" -type d 2>/dev/null
+          # 未签名情况下直接从 .app 打包成 IPA
+          APP_PATH="${APP_PATH}"
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "::error::APP_PATH 未设置或不存在: $APP_PATH"
             exit 1
           fi
 
-          echo "找到 .app: $APP_PATH"
+          echo "打包 .app: $APP_PATH"
+          # 验证 .app 内有可执行文件 (排除空壳)
+          if [ ! -f "$APP_PATH/SoulFireControl" ]; then
+            echo "::error::.app 内无可执行文件 SoulFireControl, 可能是空壳"
+            ls -la "$APP_PATH/"
+            exit 1
+          fi
+
           mkdir -p build/Payload
           cp -R "$APP_PATH" build/Payload/
           cd build
