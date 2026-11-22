@@ -34,7 +34,11 @@ jobs:
 
       - name: Select Xcode
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.2.app
+          # 列出所有可用 Xcode, 选最新的 (修 Xcode 16.2 的 actool simulator runtime bug)
+          ls /Applications | grep -i xcode
+          LATEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "使用 Xcode: $LATEST"
+          sudo xcode-select -s "$LATEST"
           xcodebuild -version
           swift -version
 
