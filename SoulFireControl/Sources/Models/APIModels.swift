@@ -5,9 +5,17 @@ import Foundation
 struct ClientDataResponse: Codable, Sendable {
     let id: String
     let username: String
-    let role: String
+    /// SoulFire 2.10+ 不再返回 role, 改用 serverPermissions 数组; 保留为可选兼容旧版
+    let role: String?
     let email: String?
     let serverInfo: ServerInfo
+    let serverPermissions: [ServerPermission]?
+}
+
+/// 服务端权限项 (granted + 可选的 globalPermission 名称)
+struct ServerPermission: Codable, Sendable {
+    let globalPermission: String?
+    let granted: Bool
 }
 
 // MARK: - 服务器信息
