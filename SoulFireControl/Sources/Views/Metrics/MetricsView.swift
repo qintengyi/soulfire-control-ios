@@ -110,25 +110,36 @@ struct CPUBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("CPU 占用")
-                    .font(.system(size: 11))
-                    .foregroundStyle(MCTheme.textTertiary)
-                Spacer()
-                Text(String(format: "%.0f%%", cpu))
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(barColor)
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(MCTheme.backgroundElevated)
-                    Capsule()
-                        .fill(barColor.opacity(0.85))
-                        .frame(width: max(0, geo.size.width * min(cpu / 100, 1)))
-                }
-            }
-            .frame(height: 6)
+            cpuHeader
+            cpuBar
+        }
+    }
+
+    private var cpuHeader: some View {
+        HStack {
+            Text("CPU 占用")
+                .font(.system(size: 11))
+                .foregroundStyle(MCTheme.textTertiary)
+            Spacer()
+            Text(String(format: "%.0f%%", cpu))
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(barColor)
+        }
+    }
+
+    private var cpuBar: some View {
+        GeometryReader { geo in
+            cpuBarContent(width: geo.size.width)
+        }
+        .frame(height: 6)
+    }
+
+    private func cpuBarContent(width: CGFloat) -> some View {
+        ZStack(alignment: .leading) {
+            Capsule().fill(MCTheme.backgroundElevated)
+            Capsule()
+                .fill(barColor.opacity(0.85))
+                .frame(width: max(0, width * min(cpu / 100, 1)))
         }
     }
 }
@@ -184,25 +195,31 @@ struct MetricGrid: View {
     let rows: [(String, String)]
 
     var body: some View {
-        let pairs = stride(from: 0, to: rows.count, by: 2).map { i in
-            (rows[i], i + 1 < rows.count ? rows[i + 1] : nil)
-        }
         VStack(spacing: 0) {
-            ForEach(0..<pairs.count, id: \.self) { i in
-                HStack(spacing: 0) {
-                    MetricCell(row: pairs[i].0)
-                    if let right = pairs[i].1 {
-                        MetricCell(row: right)
-                    } else {
-                        Color.clear
-                    }
-                }
-                if i < pairs.count - 1 {
-                    Divider()
-                        .background(MCTheme.surfaceRaised.opacity(0.5))
-                        .padding(.horizontal, 8)
-                }
+            ForEach(0..<pairCount, id: \.self) { i in
+                gridRow(i)
             }
+        }
+    }
+
+    private var pairCount: Int {
+        (rows.count + 1) / 2
+    }
+
+    @ViewBuilder
+    private func gridRow(_ i: Int) -> some View {
+        HStack(spacing: 0) {
+            MetricCell(row: rows[i * 2])
+            if i * 2 + 1 < rows.count {
+                MetricCell(row: rows[i * 2 + 1])
+            } else {
+                Color.clear
+            }
+        }
+        if i < pairCount - 1 {
+            Divider()
+                .background(MCTheme.surfaceRaised.opacity(0.5))
+                .padding(.horizontal, 8)
         }
     }
 }
