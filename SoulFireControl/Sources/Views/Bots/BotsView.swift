@@ -221,7 +221,7 @@ struct BotRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(bot.accountName ?? bot.profileId.prefix(8))
+                    Text(bot.accountName ?? String(bot.profileId.prefix(8)))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(MCTheme.textPrimary)
                     if bot.status.desiredState == "BOT_DESIRED_STATE_STOPPED" {

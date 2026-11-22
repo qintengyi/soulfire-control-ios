@@ -84,7 +84,7 @@ final class BotsViewModel {
             while let self, !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
                 guard !Task.isCancelled else { break }
-                await self?.loadBots()
+                await self.loadBots()
             }
         }
     }

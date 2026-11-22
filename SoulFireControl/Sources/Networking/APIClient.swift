@@ -61,7 +61,7 @@ enum HTTPMethod: String, Sendable {
 
 /// SoulFire HTTP API 客户端
 /// Bearer Token 鉴权 + JSON 编解码
-final class APIClient: NSObject, Sendable, @unchecked Sendable {
+final class APIClient: NSObject, @unchecked Sendable {
     static let shared = APIClient()
 
     private let session: URLSession

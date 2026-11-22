@@ -200,6 +200,8 @@ struct BotListEntry: Codable, Sendable, Identifiable, Hashable {
     let accountName: String?
     let status: BotStatus
 
+    var id: String { profileId }
+
     static func == (lhs: BotListEntry, rhs: BotListEntry) -> Bool {
         lhs.profileId == rhs.profileId && lhs.status.updatedAt == rhs.status.updatedAt
     }

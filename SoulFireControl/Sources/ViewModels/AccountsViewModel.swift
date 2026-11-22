@@ -86,13 +86,13 @@ final class AccountsViewModel {
         var bytes = Array(digest)
         bytes[6] = (bytes[6] & 0x0F) | 0x30 // version 3
         bytes[8] = (bytes[8] & 0x3F) | 0x80 // IETF variant
-        var hex = bytes.map { String(format: "%02x", $0) }.joined()
-        // 8-4-4-4-12
-        hex.insert("-", at: 8)
-        hex.insert("-", at: 13)
-        hex.insert("-", at: 18)
-        hex.insert("-", at: 23)
-        return hex
+        // 拼成 8-4-4-4-12 格式 UUID
+        let hex = bytes.map { String(format: "%02x", $0) }.joined()
+        let i1 = hex.index(hex.startIndex, offsetBy: 8)
+        let i2 = hex.index(hex.startIndex, offsetBy: 12)
+        let i3 = hex.index(hex.startIndex, offsetBy: 16)
+        let i4 = hex.index(hex.startIndex, offsetBy: 20)
+        return "\(hex[..<i1])-\(hex[i1..<i2])-\(hex[i2..<i3])-\(hex[i3..<i4])-\(hex[i4...])"
     }
 
     @MainActor

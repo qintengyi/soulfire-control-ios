@@ -11,8 +11,8 @@ struct AccountsView: View {
 
     var body: some View {
         Group {
-            if let vm {
-                content(vm)
+            if vm != nil {
+                content()
             } else {
                 ProgressView()
             }
@@ -27,7 +27,9 @@ struct AccountsView: View {
     }
 
     @ViewBuilder
-    private func content(_ vm: AccountsViewModel) -> some View {
+    private func content() -> some View {
+        // vm 在调用前已确保非空 (body 中 if let vm)
+        let vm = self.vm!
         List {
             // 批量添加离线账号
             Section {
@@ -35,7 +37,10 @@ struct AccountsView: View {
                     Text("添加离线账号 (每行一个用户名，支持逗号分隔)")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(MCTheme.textSecondary)
-                    TextEditor(text: $vm.offlineUsernames)
+                    TextEditor(text: Binding(
+                        get: { vm.offlineUsernames },
+                        set: { vm.offlineUsernames = $0 }
+                    ))
                         .font(.system(size: 13, design: .monospaced))
                         .frame(minHeight: 80)
                         .scrollContentBackground(.hidden)

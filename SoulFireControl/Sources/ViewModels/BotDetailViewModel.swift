@@ -188,6 +188,19 @@ final class BotDetailViewModel {
         }
     }
 
+    @MainActor
+    func setDesiredState(running: Bool) async {
+        do {
+            try await SoulFireAPI.setBotsDesiredState(
+                instanceId: instanceId, botIds: [botId], running: running
+            )
+            actionMessage = running ? "已请求启动" : "已请求停止"
+            await loadBot()
+        } catch {
+            actionMessage = "操作失败：\((error as? APIError)?.localizedDescription ?? "")"
+        }
+    }
+
     // MARK: 背包
 
     @MainActor

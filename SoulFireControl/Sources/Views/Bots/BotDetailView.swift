@@ -316,20 +316,10 @@ struct BotDetailView: View {
             }
             HStack(spacing: 10) {
                 quickAction("停止 Bot", "stop.circle.fill", MCTheme.flame) {
-                    Task {
-                        try? await SoulFireAPI.setBotsDesiredState(
-                            instanceId: instanceId, botIds: [bot.profileId], running: false
-                        )
-                        await vm.loadBot()
-                    }
+                    Task { await vm.setDesiredState(running: false) }
                 }
                 quickAction("启动 Bot", "play.circle.fill", MCTheme.emerald) {
-                    Task {
-                        try? await SoulFireAPI.setBotsDesiredState(
-                            instanceId: instanceId, botIds: [bot.profileId], running: true
-                        )
-                        await vm.loadBot()
-                    }
+                    Task { await vm.setDesiredState(running: true) }
                 }
             }
         }

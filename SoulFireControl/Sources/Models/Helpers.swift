@@ -2,10 +2,10 @@ import Foundation
 
 // MARK: - Bot 状态辅助
 
-extension BotListEntry {
+extension BotStatus {
     /// 用户可读的运行状态
     var runtimeStateDisplay: String {
-        switch status.runtimeState {
+        switch runtimeState {
         case "BOT_RUNTIME_STATE_STOPPED": return "已停止"
         case "BOT_RUNTIME_STATE_QUEUED": return "排队中"
         case "BOT_RUNTIME_STATE_STARTING": return "启动中"
@@ -18,8 +18,13 @@ extension BotListEntry {
     }
 
     var desiredRunning: Bool {
-        status.desiredState == "BOT_DESIRED_STATE_RUNNING"
+        desiredState == "BOT_DESIRED_STATE_RUNNING"
     }
+}
+
+extension BotListEntry {
+    var runtimeStateDisplay: String { status.runtimeStateDisplay }
+    var desiredRunning: Bool { status.desiredRunning }
 
     var phaseDisplay: String {
         switch connectionPhase {
