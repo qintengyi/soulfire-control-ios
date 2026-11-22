@@ -155,11 +155,22 @@ struct InstanceRow: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
-                // 图标方块
+                // 图标方块 (大圆角 + 柔光)
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(isSelected ? MCTheme.redstone.opacity(0.25) : MCTheme.surfaceRaised)
-                        .frame(width: 44, height: 44)
+                    RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                        .fill(isSelected ? MCTheme.redstone.opacity(0.2) : MCTheme.surfaceRaised.opacity(0.6))
+                        .frame(width: 46, height: 46)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.1), Color.clear],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ),
+                                    lineWidth: 0.5
+                                )
+                        )
                     Image(systemName: "cube.fill")
                         .font(.system(size: 20))
                         .foregroundStyle(isSelected ? MCTheme.redstone : MCTheme.textTertiary)
@@ -201,7 +212,7 @@ struct InstanceRow: View {
             .mcCard(padding: 12)
             .overlay(
                 RoundedRectangle(cornerRadius: MCTheme.cornerRadius)
-                    .strokeBorder(isSelected ? MCTheme.redstone.opacity(0.6) : .clear, lineWidth: 1.5)
+                    .strokeBorder(isSelected ? MCTheme.redstone.opacity(0.5) : .clear, lineWidth: 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: MCTheme.cornerRadius))
         }

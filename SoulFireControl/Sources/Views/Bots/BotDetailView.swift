@@ -212,11 +212,22 @@ struct BotDetailView: View {
                 .font(.system(size: 10, weight: .semibold))
         }
         .foregroundStyle(isActive ? .white : MCTheme.textSecondary)
-        .frame(width: 68, height: 52)
+        .frame(width: 72, height: 56)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(isActive ? MCTheme.redstone : MCTheme.backgroundElevated)
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(MCTheme.surfaceRaised, lineWidth: 1))
+            RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                .fill(isActive ? MCTheme.redstone.opacity(0.9) : MCTheme.backgroundElevated)
+                .overlay(
+                    RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(isActive ? 0.2 : 0.08), Color.clear],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 0.5
+                        )
+                )
+                .shadow(color: isActive ? MCTheme.redstone.opacity(0.3) : .clear, radius: 6, y: 2)
         )
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
             Task { @MainActor in
@@ -244,10 +255,11 @@ struct BotDetailView: View {
                 .foregroundStyle(isActive ? .white : MCTheme.textSecondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(
-                    Capsule().fill(isActive ? MCTheme.gold : MCTheme.backgroundElevated)
-                        .overlay(Capsule().strokeBorder(MCTheme.surfaceRaised, lineWidth: 1))
-                )
+                    .background(
+                        Capsule().fill(isActive ? MCTheme.gold.opacity(0.9) : MCTheme.backgroundElevated.opacity(0.6))
+                            .overlay(Capsule().strokeBorder(Color.white.opacity(isActive ? 0.2 : 0.06), lineWidth: 0.5))
+                            .shadow(color: isActive ? MCTheme.gold.opacity(0.3) : .clear, radius: 4, y: 1)
+                    )
         }
         .buttonStyle(.plain)
     }
@@ -438,9 +450,9 @@ struct InventoryGrid: View {
         Group {
             if let item {
                 ZStack(alignment: .bottomTrailing) {
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: MCTheme.cornerRadiusTiny, style: .continuous)
                         .fill(slotFill(for: item))
-                        .frame(width: 34, height: 34)
+                        .frame(width: 36, height: 36)
                     Text("\(item.count)")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundStyle(.white)
@@ -448,16 +460,16 @@ struct InventoryGrid: View {
                         .shadow(color: .black, radius: 1)
                 }
                 .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(MCTheme.surfaceRaised, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: MCTheme.cornerRadiusTiny, style: .continuous)
+                        .strokeBorder(MCTheme.surfaceRaised.opacity(0.6), lineWidth: 0.5)
                 )
             } else {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(MCTheme.backgroundElevated)
-                    .frame(width: 34, height: 34)
+                RoundedRectangle(cornerRadius: MCTheme.cornerRadiusTiny, style: .continuous)
+                    .fill(MCTheme.backgroundElevated.opacity(0.5))
+                    .frame(width: 36, height: 36)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 4)
-                            .strokeBorder(MCTheme.surfaceRaised, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: MCTheme.cornerRadiusTiny, style: .continuous)
+                            .strokeBorder(MCTheme.surfaceRaised.opacity(0.4), lineWidth: 0.5)
                     )
             }
         }

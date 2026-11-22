@@ -110,26 +110,38 @@ struct MetricsView: View {
                 ]
                 metricGrid(rows)
 
-                // CPU 条
+                // CPU 条 (用 maxWidth 比例, 避免 GeometryReader 在 HStack 里的布局异常)
                 if let cpu = cpuPercent {
-                    HStack(spacing: 8) {
-                        Text("CPU")
-                            .font(.system(size: 11))
-                            .foregroundStyle(MCTheme.textTertiary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("CPU 占用")
+                                .font(.system(size: 11))
+                                .foregroundStyle(MCTheme.textTertiary)
+                            Spacer()
+                            Text(String(format: "%.0f%%", cpu))
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(cpu > 80 ? MCTheme.redstone : (cpu > 50 ? MCTheme.gold : MCTheme.emerald))
+                        }
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
+                                Capsule()
                                     .fill(MCTheme.backgroundElevated)
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(cpu > 80 ? MCTheme.redstone : (cpu > 50 ? MCTheme.gold : MCTheme.emerald))
-                                    .frame(width: geo.size.width * min(cpu / 100, 1))
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: cpu > 80 ? [MCTheme.redstone, MCTheme.redstone.opacity(0.7)] :
+                                                      cpu > 50 ? [MCTheme.gold, MCTheme.gold.opacity(0.7)] :
+                                                                 [MCTheme.emerald, MCTheme.emerald.opacity(0.7)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: max(0, geo.size.width * min(cpu / 100, 1)))
                             }
                         }
-                        .frame(height: 8)
-                        Text(String(format: "%.0f%%", cpu))
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(MCTheme.textSecondary)
+                        .frame(height: 6)
                     }
+                    .padding(.top, 4)
                 }
             } else {
                 Text("暂无数据")
@@ -141,19 +153,43 @@ struct MetricsView: View {
     }
 
     private func metricGrid(_ rows: [(String, String)]) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 10) {
-            ForEach(0..<rows.count, id: \.self) { i in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(rows[i].0)
-                        .font(.system(size: 11))
-                        .foregroundStyle(MCTheme.textTertiary)
-                    Text(rows[i].1)
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundStyle(MCTheme.textPrimary)
-                        .textSelection(.enabled)
+        // 两列等高对齐: 用 HStack 每行两项, 避免 LazyVGrid 高度错位
+        let pairs = stride(from: 0, to: rows.count, by: 2).map { i in
+            (rows[i], i + 1 < rows.count ? rows[i + 1] : nil)
+        }
+        return VStack(spacing: 0) {
+            ForEach(0..<pairs.count, id: \.self) { i in
+                HStack(spacing: 0) {
+                    metricCell(pairs[i].0)
+                    if let right = pairs[i].1 {
+                        metricCell(right)
+                    } else {
+                        Color.clear
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                if i < pairs.count - 1 {
+                    Divider()
+                        .background(MCTheme.surfaceRaised.opacity(0.5))
+                        .padding(.horizontal, 8)
+                }
             }
         }
+    }
+
+    private func metricCell(_ row: (String, String)) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(row.0)
+                .font(.system(size: 11))
+                .foregroundStyle(MCTheme.textTertiary)
+            Text(row.1)
+                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .foregroundStyle(MCTheme.textPrimary)
+                .textSelection(.enabled)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 10)
     }
 }

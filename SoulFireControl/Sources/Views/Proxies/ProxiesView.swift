@@ -95,9 +95,12 @@ struct ProxiesView: View {
                         .scrollContentBackground(.hidden)
                         .padding(6)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(MCTheme.backgroundElevated)
-                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(MCTheme.surfaceRaised, lineWidth: 1))
+                            RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                                .fill(MCTheme.backgroundElevated.opacity(0.6))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                                        .strokeBorder(Color.white.opacity(0.06), lineWidth: 0.5)
+                                )
                         )
                     Button {
                         Task { await vm.addBulkProxies() }

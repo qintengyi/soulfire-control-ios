@@ -84,8 +84,12 @@ struct LogsView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(MCTheme.backgroundElevated)
+                RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                    .fill(MCTheme.backgroundElevated.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.06), lineWidth: 0.5)
+                    )
             )
             .padding(.horizontal, 16)
             .padding(.bottom, 8)

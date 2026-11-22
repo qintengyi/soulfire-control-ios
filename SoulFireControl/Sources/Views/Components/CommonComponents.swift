@@ -60,14 +60,17 @@ struct ToastOverlay: View {
                 .foregroundStyle(MCTheme.textPrimary)
                 .lineLimit(3)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(MCTheme.surface.opacity(0.98))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(color.opacity(0.5), lineWidth: 1))
+            RoundedRectangle(cornerRadius: MCTheme.cornerRadius, style: .continuous)
+                .fill(MCTheme.surface.opacity(0.95))
+                .overlay(
+                    RoundedRectangle(cornerRadius: MCTheme.cornerRadius, style: .continuous)
+                        .strokeBorder(color.opacity(0.4), lineWidth: 0.5)
+                )
         )
-        .shadow(color: .black.opacity(0.3), radius: 8, y: 2)
+        .shadow(color: .black.opacity(0.4), radius: 12, y: 4)
     }
 }
 
@@ -150,11 +153,12 @@ struct StatusBadge: View {
         Text(text)
             .font(.system(size: 11, weight: .bold, design: .rounded))
             .foregroundStyle(color)
-            .padding(.horizontal, 7)
+            .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(
-                Capsule().fill(color.opacity(0.15))
-                    .overlay(Capsule().strokeBorder(color.opacity(0.4), lineWidth: 1))
+                Capsule()
+                    .fill(color.opacity(0.15))
+                    .overlay(Capsule().strokeBorder(color.opacity(0.35), lineWidth: 0.5))
             )
     }
 }

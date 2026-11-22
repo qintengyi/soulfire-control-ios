@@ -166,12 +166,15 @@ struct MCTextFieldStyle: TextFieldStyle {
         configuration
             .font(.system(size: 15))
             .foregroundStyle(MCTheme.textPrimary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(MCTheme.backgroundElevated)
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(MCTheme.surfaceRaised, lineWidth: 1))
+                RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                    .fill(MCTheme.backgroundElevated.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                    )
             )
     }
 }

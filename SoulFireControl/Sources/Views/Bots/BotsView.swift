@@ -262,8 +262,8 @@ struct BotRow: View {
         }
         .mcCard(padding: 12)
         .overlay(
-            RoundedRectangle(cornerRadius: MCTheme.cornerRadius)
-                .strokeBorder(isSelected ? MCTheme.diamond : .clear, lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: MCTheme.cornerRadius, style: .continuous)
+                .strokeBorder(isSelected ? MCTheme.diamond.opacity(0.5) : .clear, lineWidth: 1)
         )
     }
 }
