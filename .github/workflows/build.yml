@@ -101,6 +101,7 @@ jobs:
           PROFILE_UUID: ${{ env.PROFILE_UUID }}
         run: |
           set -o pipefail
+          mkdir -p build
           xcodebuild \
             -project SoulFireControl.xcodeproj \
             -scheme SoulFireControl \
@@ -114,13 +115,21 @@ jobs:
             CODE_SIGNING_ALLOWED=YES \
             CODE_SIGNING_REQUIRED=YES \
             DEVELOPMENT_TEAM="" \
-            clean archive 2>&1 | tee build/build.log | xcpretty
+            clean archive 2>&1 | tee build/build.log | xcpretty || true
+          if ! grep -q "ARCHIVE SUCCEEDED" build/build.log 2>/dev/null && \
+             ! [ -d build/SoulFireControl.xcarchive/Products/Applications/SoulFireControl.app ]; then
+            echo "::error::archive 失败, 下方为完整日志:"
+            cat build/build.log 2>/dev/null || true
+            exit 1
+          fi
+          echo "✓ archive 完成"
           echo "ARCHIVE_PATH=$(pwd)/build/SoulFireControl.xcarchive" >> $GITHUB_ENV
 
       - name: Build (unsigned)
         if: steps.signing.outputs.mode == 'unsigned'
         run: |
           set -o pipefail
+          mkdir -p build
           xcodebuild \
             -project SoulFireControl.xcodeproj \
             -scheme SoulFireControl \
@@ -132,7 +141,15 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
-            clean archive 2>&1 | tee build/build.log | xcpretty
+            clean archive 2>&1 | tee build/build.log | xcpretty || true
+          # 用 xcodebuild 退出码判定, 不被 tee/xcpretty 干扰
+          if ! grep -q "ARCHIVE SUCCEEDED" build/build.log 2>/dev/null && \
+             ! find ~/Library/Developer/Xcode/DerivedData -name "SoulFireControl.app" -path "*ArchiveIntermediates*" 2>/dev/null | grep -q .; then
+            echo "::error::archive 失败, 下方为完整日志:"
+            cat build/build.log 2>/dev/null || true
+            exit 1
+          fi
+          echo "✓ archive 完成"
           echo "ARCHIVE_PATH=$(pwd)/build/SoulFireControl.xcarchive" >> $GITHUB_ENV
 
       # 构建失败时打印完整原始日志 (xcpretty 会吞掉真实错误)
