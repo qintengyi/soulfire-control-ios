@@ -93,33 +93,41 @@ struct BotsView: View {
             }
 
             ForEach(filteredBots) { bot in
-                Button {
-                    if selection.isEmpty {
-                        // 导航到详情
-                        appVM.selectedInstanceId = instanceId
-                        navigationPath.append(bot)
-                    } else {
+                if selection.isEmpty {
+                    // 非选择模式: NavigationLink 直接导航到详情
+                    NavigationLink {
+                        BotDetailView(instanceId: instanceId, bot: bot)
+                    } label: {
+                        BotRow(bot: bot, isSelected: false)
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        if bot.desiredRunning {
+                            Button(role: .destructive) {
+                                Task { await vm.setDesired(running: false, botIds: [bot.profileId]) }
+                            } label: { Label("停止", systemImage: "stop.fill") }
+                        } else {
+                            Button {
+                                Task { await vm.setDesired(running: true, botIds: [bot.profileId]) }
+                            } label: { Label("启动", systemImage: "play.fill") }
+                                .tint(MCTheme.emerald)
+                        }
+                    }
+                    .listRowBackground(MCTheme.background)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                } else {
+                    // 选择模式: 点击切换选中
+                    Button {
                         toggleSelect(bot.profileId)
+                    } label: {
+                        BotRow(bot: bot, isSelected: selection.contains(bot.profileId))
                     }
-                } label: {
-                    BotRow(bot: bot, isSelected: selection.contains(bot.profileId))
+                    .buttonStyle(.plain)
+                    .listRowBackground(MCTheme.background)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
                 }
-                .buttonStyle(.plain)
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    if bot.desiredRunning {
-                        Button(role: .destructive) {
-                            Task { await vm.setDesired(running: false, botIds: [bot.profileId]) }
-                        } label: { Label("停止", systemImage: "stop.fill") }
-                    } else {
-                        Button {
-                            Task { await vm.setDesired(running: true, botIds: [bot.profileId]) }
-                        } label: { Label("启动", systemImage: "play.fill") }
-                        .tint(MCTheme.emerald)
-                    }
-                }
-                .listRowBackground(MCTheme.background)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
             }
         }
         .listStyle(.plain)
@@ -135,13 +143,9 @@ struct BotsView: View {
                 )
             }
         }
-        .navigationDestination(for: BotListEntry.self) { bot in
-            BotDetailView(instanceId: instanceId, bot: bot)
-        }
         .onChange(of: selection) { _, _ in }
     }
 
-    @State private var navigationPath = NavigationPath()
     @State private var searchText = ""
 
     private var filteredBots: [BotListEntry] {
