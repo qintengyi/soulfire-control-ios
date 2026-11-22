@@ -130,35 +130,34 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build
-          # 未签名模式用 build (而非 archive): archive 在 CODE_SIGNING_ALLOWED=NO 下
-          # 产物落在 DerivedData 的 InstallationBuildProductsLocation (空壳),
-          # 真正带可执行文件的 .app 在 BuildProductsPath/Release-iphoneos/.
-          # 用 -derivedDataPath 把产物固定到 build/DerivedData, 路径可预测.
+          # 未签名模式用 archive (而非 build): build 模式在 CI 上会触发
+          # "No simulator runtime version" 的 asset catalog 编译错误.
+          # archive 模式不需要 simulator runtime, 产物在 xcarchive/Products/Applications/
           xcodebuild \
             -project SoulFireControl.xcodeproj \
             -scheme SoulFireControl \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            -derivedDataPath build/DerivedData \
+            -archivePath build/SoulFireControl.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
-            clean build 2>&1 | tee build/build.log | xcpretty; PIPE_RC=${PIPESTATUS[0]}
+            clean archive 2>&1 | tee build/build.log | xcpretty; PIPE_RC=${PIPESTATUS[0]}
           if [ "$PIPE_RC" -ne 0 ]; then
-            echo "::error::build 失败 (exit $PIPE_RC), 下方为完整日志:"
+            echo "::error::archive 失败 (exit $PIPE_RC), 下方为完整日志:"
             cat build/build.log 2>/dev/null || true
             exit 1
           fi
-          APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/SoulFireControl.app"
+          APP_PATH="build/SoulFireControl.xcarchive/Products/Applications/SoulFireControl.app"
           if [ ! -d "$APP_PATH" ]; then
             echo "::error::未找到构建产物: $APP_PATH"
-            echo "build/DerivedData 结构:"
-            find build/DerivedData -name "*.app" -type d 2>/dev/null
+            echo "xcarchive 结构:"
+            find build/SoulFireControl.xcarchive -type f 2>/dev/null | head -30
             exit 1
           fi
-          echo "✓ build 完成, .app: $APP_PATH"
+          echo "✓ archive 完成, .app: $APP_PATH"
           echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
 
       # 构建失败时打印完整原始日志 (xcpretty 会吞掉真实错误)
