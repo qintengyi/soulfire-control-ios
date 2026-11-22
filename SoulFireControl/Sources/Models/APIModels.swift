@@ -45,10 +45,11 @@ struct InstanceSummary: Codable, Sendable, Identifiable {
 }
 
 struct BotFleetSummary: Codable, Sendable {
-    let totalBots: Int
-    let desiredBots: Int
-    let onlineBots: Int
-    /// SoulFire 2.10+ 在对应状态无 bot 时不返回这些字段, 全部改可选
+    /// SoulFire 2.10+ 在新建实例尚未启动任何 bot 时, botSummary 直接返回 {} 空对象
+    /// 因此全部字段都改可选, 使用处用 ?? 0 兜底
+    let totalBots: Int?
+    let desiredBots: Int?
+    let onlineBots: Int?
     let startingBots: Int?
     let retryingBots: Int?
     let failedBots: Int?

@@ -186,7 +186,10 @@ struct InstanceRow: View {
                         }
                     }
                     if let summary = instance.botSummary {
-                        Text("\(summary.onlineBots) 在线 / \(summary.desiredBots) 目标 / 共 \(summary.totalBots)")
+                        let online = summary.onlineBots ?? 0
+                        let desired = summary.desiredBots ?? 0
+                        let total = summary.totalBots ?? 0
+                        Text("\(online) 在线 / \(desired) 目标 / 共 \(total)")
                             .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(MCTheme.textSecondary)
                     }
@@ -198,10 +201,11 @@ struct InstanceRow: View {
                     // 小型在线率指示
                     let failed = summary.failedBots ?? 0
                     let starting = summary.startingBots ?? 0
+                    let online = summary.onlineBots ?? 0
                     VStack(alignment: .trailing, spacing: 4) {
                         StatusBadge(
-                            failed > 0 ? "\(failed) 失败" : "\(summary.onlineBots) 在线",
-                            failed > 0 ? MCTheme.failed : (summary.onlineBots > 0 ? MCTheme.online : MCTheme.stopped)
+                            failed > 0 ? "\(failed) 失败" : "\(online) 在线",
+                            failed > 0 ? MCTheme.failed : (online > 0 ? MCTheme.online : MCTheme.stopped)
                         )
                         if starting > 0 {
                             StatusBadge("\(starting) 启动中", MCTheme.connecting)

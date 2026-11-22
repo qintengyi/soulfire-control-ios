@@ -9,6 +9,7 @@ struct BotDetailView: View {
     let bot: BotListEntry
 
     @State private var vm: BotDetailViewModel?
+    @State private var showInventorySheet = false
 
     var body: some View {
         Group {
@@ -21,6 +22,26 @@ struct BotDetailView: View {
         .navigationTitle(bot.accountName ?? "Bot")
         .navigationBarTitleDisplayMode(.inline)
         .background(MCTheme.background.ignoresSafeArea())
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showInventorySheet = true
+                    // 进入 sheet 时若背包未加载则自动拉一次
+                    if let vm, vm.inventory == nil {
+                        Task { await vm.loadInventory() }
+                    }
+                } label: {
+                    Image(systemName: "backpack.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(MCTheme.diamond)
+                }
+            }
+        }
+        .sheet(isPresented: $showInventorySheet) {
+            if let vm {
+                InventorySheet(vm: vm)
+            }
+        }
         .task {
             if vm == nil {
                 let newVM = BotDetailViewModel(instanceId: instanceId, botId: bot.profileId)
@@ -55,14 +76,158 @@ struct BotDetailView: View {
                 // 快捷操作
                 quickActions(vm)
 
-                // 背包
-                inventoryCard(vm)
+                // 背包入口 (大按钮, 点击弹出 sheet)
+                inventoryEntryButton(vm)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 30)
         }
         .refreshable { await vm.loadBot() }
     }
+
+    // MARK: 背包入口按钮 (醒目)
+
+    private func inventoryEntryButton(_ vm: BotDetailViewModel) -> some View {
+        Button {
+            showInventorySheet = true
+            if vm.inventory == nil {
+                Task { await vm.loadInventory() }
+            }
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [MCTheme.diamond.opacity(0.25), MCTheme.diamond.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                                .strokeBorder(MCTheme.diamond.opacity(0.5), lineWidth: 0.5)
+                        )
+                    Image(systemName: "backpack.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(MCTheme.diamond)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("背包 / 物品栏")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(MCTheme.textPrimary)
+                    Text(inventorySubtitle(vm))
+                        .font(.system(size: 12))
+                        .foregroundStyle(MCTheme.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(MCTheme.textTertiary)
+            }
+            .mcCard(padding: 14)
+            .contentShape(RoundedRectangle(cornerRadius: MCTheme.cornerRadius))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func inventorySubtitle(_ vm: BotDetailViewModel) -> String {
+        if vm.isLoadingInventory { return "正在加载…" }
+        if let inv = vm.inventory {
+            let total = inv.slots.reduce(0) { $0 + $1.count }
+            return "\(inv.slots.count) 种物品 · 共 \(total) 件"
+        }
+        return "点击查看 Bot 背包"
+    }
+}
+
+// MARK: - 背包 Sheet (完整背包界面)
+
+struct InventorySheet: View {
+    let vm: BotDetailViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 14) {
+                    if vm.isLoadingInventory && vm.inventory == nil {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .tint(MCTheme.diamond)
+                                .controlSize(.large)
+                            Text("正在加载背包…")
+                                .font(.system(size: 13))
+                                .foregroundStyle(MCTheme.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                    } else if let inventory = vm.inventory {
+                        InventoryGrid(
+                            inventory: inventory,
+                            onSlotClick: { slot in Task { await vm.clickSlot(slot) } }
+                        )
+                    } else {
+                        VStack(spacing: 12) {
+                            Image(systemName: "backpack")
+                                .font(.system(size: 44))
+                                .foregroundStyle(MCTheme.textTertiary)
+                            Text("暂无背包数据")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(MCTheme.textSecondary)
+                            Text("Bot 需在线才能读取背包")
+                                .font(.system(size: 12))
+                                .foregroundStyle(MCTheme.textTertiary)
+                            Button {
+                                Task { await vm.loadInventory() }
+                            } label: {
+                                Label("重新加载", systemImage: "arrow.clockwise")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(MCTheme.diamond)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule().fill(MCTheme.diamond.opacity(0.12))
+                                            .overlay(Capsule().strokeBorder(MCTheme.diamond.opacity(0.4), lineWidth: 0.5))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 30)
+            }
+            .background(MCTheme.background.ignoresSafeArea())
+            .navigationTitle("背包")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("关闭") { dismiss() }
+                        .foregroundStyle(MCTheme.textSecondary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await vm.loadInventory() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(MCTheme.diamond)
+                    }
+                    .disabled(vm.isLoadingInventory)
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .presentationBackground(MCTheme.background)
+    }
+}
 
     // MARK: 状态卡
 
@@ -363,36 +528,7 @@ struct BotDetailView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: 背包
-
-    private func inventoryCard(_ vm: BotDetailViewModel) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("背包")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(MCTheme.textSecondary)
-                Spacer()
-                if vm.isLoadingInventory {
-                    ProgressView().tint(MCTheme.diamond)
-                } else {
-                    RefreshButton { Task { await vm.loadInventory() } }
-                }
-            }
-
-            if let inventory = vm.inventory {
-                InventoryGrid(
-                    inventory: inventory,
-                    onSlotClick: { slot in Task { await vm.clickSlot(slot) } }
-                )
-            } else {
-                Text("点击右上角刷新加载背包 (Bot 需在线)")
-                    .font(.system(size: 12))
-                    .foregroundStyle(MCTheme.textTertiary)
-                    .onTapGesture { Task { await vm.loadInventory() } }
-            }
-        }
-        .mcCard()
-    }
+    // MARK: 背包入口与 Sheet 已移至下方独立实现
 }
 
 // MARK: - 背包网格
