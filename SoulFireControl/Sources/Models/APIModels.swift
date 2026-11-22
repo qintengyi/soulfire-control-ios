@@ -258,8 +258,10 @@ struct BotLiveState: Codable, Sendable {
 struct BotInventoryStateResponse: Codable, Sendable {
     let layout: ContainerLayout
     let slots: [InventorySlot]
+    /// SoulFire 在无手持物品时省略, 改可选
     let carriedItem: InventorySlot?
-    let selectedHotbarSlot: Int
+    /// SoulFire 在未选中快捷栏时省略, 改可选
+    let selectedHotbarSlot: Int?
 }
 
 struct ContainerLayout: Codable, Sendable {
@@ -272,10 +274,12 @@ struct ContainerLayout: Codable, Sendable {
 struct SlotRegion: Codable, Sendable {
     let id: String
     let label: String
-    let startIndex: Int
+    /// SoulFire 对单槽位 region (如 crafting_output) 省略此字段, 改可选
+    let startIndex: Int?
     let slotCount: Int
     let columns: Int
-    let type: String
+    /// SoulFire 对部分 region 省略此字段, 改可选
+    let type: String?
 }
 
 struct InventorySlot: Codable, Sendable, Identifiable {

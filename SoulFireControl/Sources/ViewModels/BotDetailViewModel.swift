@@ -215,7 +215,7 @@ final class BotDetailViewModel {
     }
 
     @MainActor
-    func clickSlot(_ slot: Int, clickType: String = "LEFT_CLICK") async {
+    func clickSlot(_ slot: Int, clickType: String = "CLICK_TYPE_LEFT_CLICK") async {
         do {
             let resp = try await SoulFireAPI.clickInventorySlot(
                 instanceId: instanceId, botId: botId, slot: slot, clickType: clickType

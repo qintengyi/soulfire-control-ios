@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Bot 详情控制台
 
@@ -402,19 +403,18 @@ struct InventoryGrid: View {
 
     /// 按 region 渲染每个区域
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             ForEach(inventory.layout.regions, id: \.id) { region in
                 VStack(alignment: .leading, spacing: 6) {
-                    if region.slotCount > 9 || region.id.contains("container") {
-                        Text(region.label)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(MCTheme.textTertiary)
-                    }
+                    Text(region.label)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(MCTheme.textTertiary)
                     slotGrid(region)
                 }
             }
+            // 手持物品
             if let carried = inventory.carriedItem {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Text("手持")
                         .font(.system(size: 11))
                         .foregroundStyle(MCTheme.textTertiary)
@@ -422,6 +422,28 @@ struct InventoryGrid: View {
                     Text("\(carried.count)x \(carried.shortItemName)")
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(MCTheme.textPrimary)
+                    Spacer()
+                }
+                .padding(.top, 2)
+            }
+            // 物品列表
+            if !inventory.slots.isEmpty {
+                Divider().background(MCTheme.surfaceRaised.opacity(0.5))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("物品清单")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(MCTheme.textTertiary)
+                    ForEach(inventory.slots, id: \.slot) { slot in
+                        HStack {
+                            Text(slot.shortItemName)
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundStyle(MCTheme.textPrimary)
+                            Spacer()
+                            Text("x\(slot.count)")
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(MCTheme.diamond)
+                        }
+                    }
                 }
             }
         }
@@ -431,13 +453,14 @@ struct InventoryGrid: View {
         let columns = max(region.columns, 1)
         let rows = (region.slotCount + columns - 1) / columns
         let itemMap = Dictionary(uniqueKeysWithValues: inventory.slots.map { ($0.slot, $0) })
+        let start = region.startIndex ?? 0
 
         return VStack(spacing: 4) {
             ForEach(0..<rows, id: \.self) { row in
                 HStack(spacing: 4) {
                     ForEach(0..<columns, id: \.self) { col in
-                        let slotIndex = region.startIndex + row * columns + col
-                        if slotIndex < region.startIndex + region.slotCount {
+                        let slotIndex = start + row * columns + col
+                        if slotIndex < start + region.slotCount {
                             slotView(itemMap[slotIndex], clickable: true)
                         }
                     }
@@ -449,15 +472,33 @@ struct InventoryGrid: View {
     private func slotView(_ item: InventorySlot?, clickable: Bool) -> some View {
         Group {
             if let item {
-                ZStack(alignment: .bottomTrailing) {
+                ZStack {
                     RoundedRectangle(cornerRadius: MCTheme.cornerRadiusTiny, style: .continuous)
                         .fill(slotFill(for: item))
                         .frame(width: 36, height: 36)
-                    Text("\(item.count)")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                        .padding(2)
-                        .shadow(color: .black, radius: 1)
+                    // 物品图标 (如果有 base64 图标)
+                    if let iconData = item.iconBase64,
+                       let uiImage = UIImage(data: Data(base64Encoded: iconData) ?? Data()) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 28, height: 28)
+                    } else {
+                        // 无图标时显示物品名首字母
+                        Text(String(item.shortItemName.prefix(3)))
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundStyle(MCTheme.textSecondary)
+                            .lineLimit(1)
+                    }
+                    // 数量 (右下角)
+                    if item.count > 1 {
+                        Text("\(item.count)")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .padding(2)
+                            .shadow(color: .black, radius: 1)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    }
                 }
                 .overlay(
                     RoundedRectangle(cornerRadius: MCTheme.cornerRadiusTiny, style: .continuous)
@@ -479,9 +520,8 @@ struct InventoryGrid: View {
     }
 
     private func slotFill(for item: InventorySlot) -> Color {
-        // 不同物品类型不同底色 (近 MC 风格)
         if item.iconBase64 != nil {
-            return MCTheme.surfaceRaised
+            return MCTheme.surfaceRaised.opacity(0.8)
         }
         return MCTheme.surface
     }
