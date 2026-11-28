@@ -106,6 +106,16 @@ enum SoulFireAPI {
         )
     }
 
+    /// 部分更新 (只发送非 nil 字段, 其他保持不变)
+    static func setMovement(instanceId: String, botId: String, request: SetMovementStateRequest) async throws {
+        let _: EmptyObject = try await client.request(
+            "/v1/instances/\(instanceId)/bots/\(botId)/movement:set",
+            method: .post,
+            body: request,
+            as: EmptyObject.self
+        )
+    }
+
     static func resetMovement(instanceId: String, botId: String) async throws {
         let _: EmptyObject = try await client.request(
             "/v1/instances/\(instanceId)/bots/\(botId)/movement:reset",

@@ -27,10 +27,6 @@ final class BotDetailViewModel {
     var errorMessage: String?
     var actionMessage: String?
 
-    // 移动节流
-    private var lastMovementSent: MovementState = MovementState()
-    private var movementSendTask: Task<Void, Never>?
-
     init(instanceId: String, botId: String) {
         self.instanceId = instanceId
         self.botId = botId
@@ -104,9 +100,11 @@ final class BotDetailViewModel {
 
     // MARK: 移动控制
 
-    /// 方向键按下/松开
+    /// 方向键按下/松开 — 只发送该字段, 不覆盖其他状态 (如潜行/疾跑)
+    /// SoulFire movement:set 是部分更新: 只发送非 nil 字段, 其他字段保持原值
     @MainActor
     func setMovement(axis: MovementAxis, active: Bool) {
+        // 同步本地状态
         switch axis {
         case .forward: movement.forward = active
         case .backward: movement.backward = active
@@ -116,38 +114,66 @@ final class BotDetailViewModel {
         case .sneak: movement.sneaking = active
         case .sprint: movement.sprinting = active
         }
-        sendMovementForce()
+        // 只发送被改变的字段 (其他字段为 nil, 服务端保持原值)
+        sendAxisMovement(axis, value: active)
     }
 
-    /// 跳跃: 瞬时触发 (jumping=true, 250ms 后自动 false)
+    /// 发送单个轴的字段更新 (其他字段为 nil, 不影响已有状态)
+    @MainActor
+    private func sendAxisMovement(_ axis: MovementAxis, value: Bool) {
+        let req: SetMovementStateRequest
+        switch axis {
+        case .forward:  req = SetMovementStateRequest(forward: value)
+        case .backward: req = SetMovementStateRequest(backward: value)
+        case .left:     req = SetMovementStateRequest(left: value)
+        case .right:    req = SetMovementStateRequest(right: value)
+        case .jump:     req = SetMovementStateRequest(jumping: value)
+        case .sneak:    req = SetMovementStateRequest(sneaking: value)
+        case .sprint:   req = SetMovementStateRequest(sprinting: value)
+        }
+        sendMovementRequest(req)
+    }
+
+    /// 跳跃: 支持长按 (按住空格 = 持续跳跃), 点击瞬时也发送 jumping=true
+    /// SoulFire OpenAPI: "When held, the bot will jump repeatedly."
     @MainActor
     func jump() {
         movement.jumping = true
-        sendMovementForce()
-        Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(250))
-            guard let self, !Task.isCancelled else { return }
-            await MainActor.run {
-                self.movement.jumping = false
-                self.sendMovementForce()
-            }
-        }
+        sendAxisMovement(.jump, value: true)
     }
 
-    private func sendMovementForce() {
-        // 强制发送, 不依赖 lastMovementSent 比较
-        let state = movement
+    /// 跳跃松开 (长按松手时调用)
+    @MainActor
+    func endJump() {
+        movement.jumping = false
+        sendAxisMovement(.jump, value: false)
+    }
+
+    /// 切换潜行状态 (只发 sneaking 字段)
+    @MainActor
+    func toggleSneak() {
+        movement.sneaking.toggle()
+        sendAxisMovement(.sneak, value: movement.sneaking)
+    }
+
+    /// 切换疾跑状态 (只发 sprinting 字段)
+    /// 注意: 疾跑需要 forward 移动 + 饥饿值 >= 6, 否则服务端会忽略
+    @MainActor
+    func toggleSprint() {
+        movement.sprinting.toggle()
+        sendAxisMovement(.sprint, value: movement.sprinting)
+    }
+
+    /// 统一发送部分更新请求
+    @MainActor
+    private func sendMovementRequest(_ request: SetMovementStateRequest) {
         let instanceId = self.instanceId
         let botId = self.botId
-        movementSendTask?.cancel()
-        lastMovementSent = movement
-        movementSendTask = Task {
-            try? await Task.sleep(for: .milliseconds(60))
-            guard !Task.isCancelled else { return }
+        Task {
             do {
-                try await SoulFireAPI.setMovement(instanceId: instanceId, botId: botId, state: state)
+                _ = try await SoulFireAPI.setMovement(instanceId: instanceId, botId: botId, request: request)
             } catch {
-                // 静默失败
+                // 静默失败, 移动控制不应弹出错误打断用户
             }
         }
     }
@@ -155,7 +181,6 @@ final class BotDetailViewModel {
     @MainActor
     func resetMovement() async {
         movement = MovementState()
-        lastMovementSent = movement
         do {
             try await SoulFireAPI.resetMovement(instanceId: instanceId, botId: botId)
             actionMessage = "已重置移动"

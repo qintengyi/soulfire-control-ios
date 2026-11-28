@@ -273,36 +273,38 @@ struct BotDetailView: View {
         .mcCard()
     }
 
-    /// 跳跃按钮: 点击触发瞬时跳跃
+    /// 跳跃按钮: 长按 = 持续跳跃 (空格键语义), 松手停止
+    /// SoulFire OpenAPI: "When held, the bot will jump repeatedly."
     private func jumpButton(_ vm: BotDetailViewModel) -> some View {
-        Button {
-            Task { @MainActor in vm.jump() }
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: "arrowtriangle.up")
-                    .font(.system(size: 19, weight: .bold))
-                Text("跳")
-                    .font(.system(size: 10, weight: .semibold))
-            }
-            .foregroundStyle(.white)
-            .frame(width: 72, height: 56)
-            .background(
-                RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
-                    .fill(MCTheme.emerald.opacity(0.85))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.2), Color.clear],
-                                    startPoint: .top, endPoint: .bottom
-                                ),
-                                lineWidth: 0.5
-                            )
-                    )
-                    .shadow(color: MCTheme.emerald.opacity(0.3), radius: 6, y: 2)
-            )
+        let isActive = vm.movement.jumping
+        return VStack(spacing: 3) {
+            Image(systemName: "arrowtriangle.up")
+                .font(.system(size: 19, weight: .bold))
+            Text("跳")
+                .font(.system(size: 10, weight: .semibold))
         }
-        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .frame(width: 72, height: 56)
+        .background(
+            RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                .fill(isActive ? MCTheme.emerald.opacity(0.95) : MCTheme.emerald.opacity(0.55))
+                .overlay(
+                    RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.2), Color.clear],
+                                startPoint: .top, endPoint: .bottom
+                            ),
+                            lineWidth: 0.5
+                        )
+                )
+                .shadow(color: MCTheme.emerald.opacity(0.3), radius: 6, y: 2)
+        )
+        .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
+            Task { @MainActor in
+                if pressing { vm.jump() } else { vm.endJump() }
+            }
+        }, perform: {})
     }
 
     private func padButton(_ vm: BotDetailViewModel, _ axis: MovementAxis, _ icon: String, _ label: String) -> some View {
@@ -360,7 +362,11 @@ struct BotDetailView: View {
 
         return Button {
             Task { @MainActor in
-                vm.setMovement(axis: axis, active: !isActive)
+                switch axis {
+                case .sneak:  vm.toggleSneak()
+                case .sprint: vm.toggleSprint()
+                default:      vm.setMovement(axis: axis, active: !isActive)
+                }
             }
         } label: {
             Text(label)
