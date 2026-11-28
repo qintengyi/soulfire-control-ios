@@ -28,13 +28,11 @@ struct AccountsView: View {
         .id(instanceId)
     }
 
-    @ViewBuilder
-    private func content() -> some View {
+    private func content() -> AnyView {
         guard let vm = self.vm else {
             return AnyView(EmptyView())
         }
-        let _ = vm // 捕获
-        AnyView(contentBody(vm))
+        return AnyView(contentBody(vm))
     }
 
     private func contentBody(_ vm: AccountsViewModel) -> some View {
