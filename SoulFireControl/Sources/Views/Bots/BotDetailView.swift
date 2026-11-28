@@ -244,7 +244,7 @@ struct BotDetailView: View {
                 .buttonStyle(.plain)
             }
 
-            // 十字方向键
+            // 十字方向键 (前后左右长按 + 跳点击)
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Spacer()
@@ -253,17 +253,17 @@ struct BotDetailView: View {
                 }
                 HStack(spacing: 8) {
                     padButton(vm, .left, "arrow.left", "左")
-                    padButton(vm, .backward, "arrow.down", "后")
+                    jumpButton(vm)
                     padButton(vm, .right, "arrow.right", "右")
                 }
                 HStack(spacing: 8) {
                     Spacer()
-                    padButton(vm, .jump, "arrowtriangle.up", "跳")
+                    padButton(vm, .backward, "arrow.down", "后")
                     Spacer()
                 }
             }
 
-            // 修饰键
+            // 修饰键 (toggle 式)
             HStack(spacing: 10) {
                 modifierToggle(vm, .sneak, "潜行")
                 modifierToggle(vm, .sprint, "疾跑")
@@ -271,6 +271,38 @@ struct BotDetailView: View {
             }
         }
         .mcCard()
+    }
+
+    /// 跳跃按钮: 点击触发瞬时跳跃
+    private func jumpButton(_ vm: BotDetailViewModel) -> some View {
+        Button {
+            Task { @MainActor in vm.jump() }
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: "arrowtriangle.up")
+                    .font(.system(size: 19, weight: .bold))
+                Text("跳")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .frame(width: 72, height: 56)
+            .background(
+                RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                    .fill(MCTheme.emerald.opacity(0.85))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.2), Color.clear],
+                                    startPoint: .top, endPoint: .bottom
+                                ),
+                                lineWidth: 0.5
+                            )
+                    )
+                    .shadow(color: MCTheme.emerald.opacity(0.3), radius: 6, y: 2)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private func padButton(_ vm: BotDetailViewModel, _ axis: MovementAxis, _ icon: String, _ label: String) -> some View {
@@ -450,6 +482,7 @@ struct BotDetailView: View {
 struct InventorySheet: View {
     let vm: BotDetailViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var showDropAllConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -467,9 +500,48 @@ struct InventorySheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 60)
                     } else if let inventory = vm.inventory {
+                        // 操作栏: 丢弃全部
+                        if !inventory.slots.isEmpty {
+                            HStack(spacing: 10) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(MCTheme.gold)
+                                Text("共 \(inventory.slots.count) 种物品")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(MCTheme.textSecondary)
+                                Spacer()
+                                Button(role: .destructive) {
+                                    showDropAllConfirm = true
+                                } label: {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: "trash.fill")
+                                            .font(.system(size: 12))
+                                        Text("丢弃所有物品")
+                                            .font(.system(size: 13, weight: .bold))
+                                    }
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(MCTheme.mcButton(MCTheme.redstone.opacity(0.9)))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                                    .fill(MCTheme.redstone.opacity(0.08))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: MCTheme.cornerRadiusSmall, style: .continuous)
+                                            .strokeBorder(MCTheme.redstone.opacity(0.2), lineWidth: 0.5)
+                                    )
+                            )
+                        }
+
                         InventoryGrid(
                             inventory: inventory,
-                            onSlotClick: { slot in Task { await vm.clickSlot(slot) } }
+                            onSlotClick: { slot in Task { await vm.clickSlot(slot) } },
+                            onSlotDrop: { slot in Task { await vm.dropSlot(slot) } }
                         )
                     } else {
                         VStack(spacing: 12) {
@@ -526,6 +598,14 @@ struct InventorySheet: View {
         }
         .presentationDetents([.large])
         .presentationBackground(MCTheme.background)
+        .alert("丢弃所有物品", isPresented: $showDropAllConfirm) {
+            Button("丢弃全部", role: .destructive) {
+                Task { await vm.dropAllItems() }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将从背包中丢弃所有槽位的全部物品，此操作不可撤销。")
+        }
     }
 }
 
@@ -534,6 +614,7 @@ struct InventorySheet: View {
 struct InventoryGrid: View {
     let inventory: BotInventoryStateResponse
     var onSlotClick: (Int) -> Void
+    var onSlotDrop: ((Int) -> Void)?
 
     /// 按 region 渲染每个区域
     var body: some View {
@@ -560,15 +641,17 @@ struct InventoryGrid: View {
                 }
                 .padding(.top, 2)
             }
-            // 物品列表
+            // 物品列表 (带丢弃按钮)
             if !inventory.slots.isEmpty {
                 Divider().background(MCTheme.surfaceRaised.opacity(0.5))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("物品清单")
+                    Text("物品清单 (点击物品行可丢弃)")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(MCTheme.textTertiary)
                     ForEach(inventory.slots, id: \.slot) { slot in
-                        HStack {
+                        HStack(spacing: 8) {
+                            slotView(slot, clickable: false)
+                                .frame(width: 28, height: 28)
                             Text(slot.shortItemName)
                                 .font(.system(size: 12, design: .monospaced))
                                 .foregroundStyle(MCTheme.textPrimary)
@@ -576,7 +659,19 @@ struct InventoryGrid: View {
                             Text("x\(slot.count)")
                                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
                                 .foregroundStyle(MCTheme.diamond)
+                            if onSlotDrop != nil {
+                                Button {
+                                    onSlotDrop?(slot.slot)
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(MCTheme.redstone)
+                                        .padding(6)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
+                        .padding(.vertical, 2)
                     }
                 }
             }

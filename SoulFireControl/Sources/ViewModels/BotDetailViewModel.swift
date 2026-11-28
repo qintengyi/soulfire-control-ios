@@ -116,24 +116,38 @@ final class BotDetailViewModel {
         case .sneak: movement.sneaking = active
         case .sprint: movement.sprinting = active
         }
-        sendMovementIfNeeded()
+        sendMovementForce()
     }
 
-    private func sendMovementIfNeeded() {
-        // 500ms 节流: 只有状态变化才发送
-        guard movement != lastMovementSent else { return }
-        lastMovementSent = movement
+    /// 跳跃: 瞬时触发 (jumping=true, 250ms 后自动 false)
+    @MainActor
+    func jump() {
+        movement.jumping = true
+        sendMovementForce()
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard let self, !Task.isCancelled else { return }
+            await MainActor.run {
+                self.movement.jumping = false
+                self.sendMovementForce()
+            }
+        }
+    }
+
+    private func sendMovementForce() {
+        // 强制发送, 不依赖 lastMovementSent 比较
         let state = movement
         let instanceId = self.instanceId
         let botId = self.botId
         movementSendTask?.cancel()
+        lastMovementSent = movement
         movementSendTask = Task {
-            try? await Task.sleep(for: .milliseconds(80))
+            try? await Task.sleep(for: .milliseconds(60))
             guard !Task.isCancelled else { return }
             do {
                 try await SoulFireAPI.setMovement(instanceId: instanceId, botId: botId, state: state)
             } catch {
-                // 静默失败，控制类操作由 UI 重试
+                // 静默失败
             }
         }
     }
@@ -226,7 +240,7 @@ final class BotDetailViewModel {
     }
 
     @MainActor
-    func clickSlot(_ slot: Int, clickType: String = "CLICK_TYPE_LEFT_CLICK") async {
+    func clickSlot(_ slot: Int, clickType: String = "LEFT_CLICK") async {
         do {
             let resp = try await SoulFireAPI.clickInventorySlot(
                 instanceId: instanceId, botId: botId, slot: slot, clickType: clickType
@@ -238,6 +252,54 @@ final class BotDetailViewModel {
         } catch {
             actionMessage = "点击失败：\((error as? APIError)?.localizedDescription ?? "")"
         }
+    }
+
+    /// 丢弃指定槽位的全部物品 (DROP_ALL)
+    @MainActor
+    func dropSlot(_ slot: Int) async {
+        do {
+            let resp = try await SoulFireAPI.clickInventorySlot(
+                instanceId: instanceId, botId: botId, slot: slot, clickType: "DROP_ALL"
+            )
+            if !resp.success {
+                actionMessage = resp.error ?? "丢弃失败"
+            } else {
+                actionMessage = "已丢弃"
+            }
+            await loadInventory()
+        } catch {
+            actionMessage = "丢弃失败：\((error as? APIError)?.localizedDescription ?? "")"
+        }
+    }
+
+    /// 一键丢弃背包内所有物品 (遍历每个有物品的槽位调用 DROP_ALL)
+    @MainActor
+    func dropAllItems() async {
+        guard let inventory = inventory else {
+            actionMessage = "背包未加载"
+            return
+        }
+        let slotsToDrop = inventory.slots.filter { $0.count > 0 }.map { $0.slot }
+        guard !slotsToDrop.isEmpty else {
+            actionMessage = "背包为空, 无可丢弃物品"
+            return
+        }
+        actionMessage = "正在丢弃 \(slotsToDrop.count) 个槽位物品…"
+        var failed = 0
+        for slot in slotsToDrop {
+            do {
+                let resp = try await SoulFireAPI.clickInventorySlot(
+                    instanceId: instanceId, botId: botId, slot: slot, clickType: "DROP_ALL"
+                )
+                if !resp.success { failed += 1 }
+            } catch {
+                failed += 1
+            }
+        }
+        await loadInventory()
+        actionMessage = failed == 0
+            ? "已丢弃全部 \(slotsToDrop.count) 个槽位物品"
+            : "丢弃完成, \(failed) 个失败"
     }
 }
 
